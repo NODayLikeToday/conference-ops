@@ -305,30 +305,60 @@ function timeSlots(){
   }
   return s;
 }
-function formatTime(ts){
-  if(!ts)return'';
-  const d=new Date(ts);let h=d.getHours(),m=d.getMinutes();
-  const ap=h>=12?'PM':'AM';if(h>12)h-=12;if(h===0)h=12;
-  return`${h}:${String(m).padStart(2,'0')} ${ap}`;
+const CONFERENCE_TIME_ZONE='America/Los_Angeles';
+const PT_TIME_FORMATTER=new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,hour:'numeric',minute:'2-digit',hour12:true});
+const PT_DATE_FORMATTER=new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,weekday:'short',month:'short',day:'numeric'});
+const PT_DAY_LABEL_FORMATTER=new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,weekday:'long',month:'short',day:'numeric'});
+const PT_WEEKDAY_FORMATTER=new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,weekday:'short'});
+function formatterParts(date,fmt){return fmt.formatToParts(date).reduce((acc,part)=>{if(part.type!=='literal')acc[part.type]=part.value;return acc;},{});}
+function getTimeZoneOffsetMinutes(date,timeZone){
+  const parts=new Intl.DateTimeFormat('en-US',{timeZone,hour12:false,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}).formatToParts(date);
+  const map={};
+  for(const part of parts){if(part.type!=='literal')map[part.type]=part.value;}
+  const asUtc=Date.UTC(Number(map.year),Number(map.month)-1,Number(map.day),Number(map.hour),Number(map.minute),Number(map.second));
+  return(asUtc-date.getTime())/60000;
 }
-function formatDate(ts){if(!ts)return'';return new Date(ts).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});}
-function slotForDay(slot,day){
-  const d=new Date(slot.start_time),dy=day||currentDay;
-  return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`===dy;
+function pacificDateTimeToUtcIso(dateStr,timeStr){
+  const[year,month,day]=dateStr.split('-').map(Number);
+  const[hour,minute]=timeStr.split(':').map(Number);
+  const utcGuess=new Date(Date.UTC(year,month-1,day,hour,minute,0));
+  const offsetMinutes=getTimeZoneOffsetMinutes(utcGuess,CONFERENCE_TIME_ZONE);
+  const utcMillis=Date.UTC(year,month-1,day,hour,minute,0)-(offsetMinutes*60*1000);
+  return new Date(utcMillis).toISOString();
 }
-function slotCoversTime(slot,timeStr){
-  const[sh,sm]=timeStr.split(':').map(Number);
-  const start=new Date(slot.start_time),end=new Date(slot.end_time);
-  const slotMin=sh*60+sm,startMin=start.getHours()*60+start.getMinutes(),endMin=end.getHours()*60+end.getMinutes();
-  return slotMin>=startMin&&slotMin<endMin;
+function pacificDateOnlyToSafeDate(dateStr){
+  const[year,month,day]=dateStr.split('-').map(Number);
+  return new Date(Date.UTC(year,month-1,day,12,0,0));
 }
+function parseConferenceTimestamp(value){
+  if(!value)return null;
+  if(value instanceof Date)return Number.isNaN(value.getTime())?null:value;
+  const raw=String(value).trim();
+  const naive=raw.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?$/);
+  if(naive && !/(?:Z|[+-]\d{2}:\d{2})$/i.test(raw)) return new Date(pacificDateTimeToUtcIso(naive[1],naive[2]));
+  const parsed=new Date(raw);
+  return Number.isNaN(parsed.getTime())?null:parsed;
+}
+function conferenceDateKey(value){ const d=parseConferenceTimestamp(value); if(!d)return''; const parts=formatterParts(d,new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,year:'numeric',month:'2-digit',day:'2-digit'})); return`${parts.year}-${parts.month}-${parts.day}`; }
+function conferenceTime24(value){ const d=parseConferenceTimestamp(value); if(!d)return''; const parts=formatterParts(d,new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,hour12:false,hour:'2-digit',minute:'2-digit'})); return`${parts.hour}:${parts.minute}`; }
+function conferenceMinutes(value){ const hm=conferenceTime24(value); if(!hm)return 0; const[h,m]=hm.split(':').map(Number); return h*60+m; }
+function formatClockLabel(timeStr){ if(!timeStr)return''; const[hStr,mStr]=timeStr.split(':'); let h=Number(hStr),m=Number(mStr||0); const ap=h>=12?'PM':'AM'; h=h%12||12; return`${h}:${String(m).padStart(2,'0')} ${ap}`; }
+function snapTo30Min(timeStr){ const[hRaw,mRaw]=timeStr.split(':').map(Number); let h=hRaw,m=mRaw<15?0:mRaw<45?30:60; if(m===60){m=0;h+=1;} return`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`; }
+function buildTimeOptions(){ const times=[]; for(let h=8;h<=21;h++){ for(const m of [0,30]){ const hh=String(h).padStart(2,'0'); const mm=String(m).padStart(2,'0'); times.push(`${hh}:${mm}`);} } return times.map(t=>`<option value="${t}">${formatClockLabel(t)}</option>`).join(''); }
+function isOffHoursTime(value){ const mins=conferenceMinutes(value); return mins<8*60 || mins>=(17*60+30); }
+function formatTime(ts){ const d=parseConferenceTimestamp(ts); return d?PT_TIME_FORMATTER.format(d):''; }
+function formatDate(ts){ const d=parseConferenceTimestamp(ts); return d?PT_DATE_FORMATTER.format(d):''; }
+function slotForDay(slot,day){ return conferenceDateKey(slot.start_time)===(day||currentDay); }
+function slotCoversTime(slot,timeStr){ const[sh,sm]=timeStr.split(':').map(Number); const slotMin=sh*60+sm,startMin=conferenceMinutes(slot.start_time),endMin=conferenceMinutes(slot.end_time); return slotMin>=startMin&&slotMin<endMin; }
 function memberName(id){const m=appData.team.find(t=>t.id===id);return m?m.name:'—';}
 function subspaceName(id){const s=appData.subspaces.find(x=>x.id===id);return s?s.name:'—';}
-function buildDateTime(date,time){return`${date}T${time}:00`;}
-function addMinutes(dt,mins){const d=new Date(dt);d.setMinutes(d.getMinutes()+mins);return d.toISOString().slice(0,16);}
-function nowTimeStr(){const d=new Date();return`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()-d.getMinutes()%30).padStart(2,'0')}`;}
-function dayLabel(dateStr){return new Date(dateStr+'T12:00').toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});}
-
+function buildDateTime(date,time){return pacificDateTimeToUtcIso(date,time);}
+function addMinutes(dt,mins){ const d=parseConferenceTimestamp(dt); if(!d)return''; d.setUTCMinutes(d.getUTCMinutes()+mins); return d.toISOString(); }
+function nowTimeStr(){ const parts=formatterParts(new Date(),new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,hour12:false,hour:'2-digit',minute:'2-digit'})); const hour=Number(parts.hour),minute=Number(parts.minute),rounded=minute-minute%30; return`${String(hour).padStart(2,'0')}:${String(rounded).padStart(2,'0')}`; }
+function dayLabel(dateStr){return PT_DAY_LABEL_FORMATTER.format(pacificDateOnlyToSafeDate(dateStr));}
+function describeSlotForAlert(slot){ const title=slot.obligation_type||'Event'; const detail=slot.notes?` · ${slot.notes}`:''; return `${title} — ${formatDate(slot.start_time)} ${formatTime(slot.start_time)} to ${formatTime(slot.end_time)}${detail}`; }
+function findOverlappingSlots(memberId,startTime,endTime,excludeId=null){ const start=parseConferenceTimestamp(startTime),end=parseConferenceTimestamp(endTime); if(!start||!end)return[]; return appData.slots.filter(s=>s.member_id===memberId&&(excludeId==null||s.id!==excludeId)).filter(s=>{ const existingStart=parseConferenceTimestamp(s.start_time),existingEnd=parseConferenceTimestamp(s.end_time); return existingStart&&existingEnd&&start<existingEnd&&end>existingStart; }).sort((a,b)=>parseConferenceTimestamp(a.start_time)-parseConferenceTimestamp(b.start_time)); }
+function confirmNoOverlap(memberId,startTime,endTime,excludeId=null,label='event'){ const overlaps=findOverlappingSlots(memberId,startTime,endTime,excludeId); if(!overlaps.length)return true; const overlapLines=overlaps.map(s=>`• ${describeSlotForAlert(s)}`).join('\n'); return window.confirm(`Potential overlap detected for ${memberName(memberId)} when saving this ${label}:\n\n${overlapLines}\n\nClick OK to save anyway, or Cancel to go back and adjust the time.`); }
 // ── Coverage analysis ──
 function analyzeCoverage(day){
   const slots=timeSlots(),daySlots=appData.slots.filter(s=>slotForDay(s,day)),gaps=[];
@@ -392,7 +422,7 @@ function renderDashboard(){
   const absentToday=absentOnDay(currentDay);
 
   const absentBanner=absentToday.length?`<div class="alert alert-info mb-16"><span>ℹ</span><span><strong>${absentToday.map(m=>m.name).join(', ')}</strong> not attending on ${dayLabel(currentDay)}</span></div>`:'';
-  const gapAlerts=gaps.slice(0,5).map(g=>`<div class="alert alert-danger"><span>⚠</span><span><strong>${g.subspace}</strong> uncovered at ${g.time.replace(/^0/,'')}</span></div>`).join('');
+  const gapAlerts=gaps.slice(0,5).map(g=>`<div class="alert alert-danger"><span>⚠</span><span><strong>${g.subspace}</strong> uncovered at ${formatClockLabel(g.time)}</span></div>`).join('');
 
   const unclaimedRequests=appData.requests.filter(r=>r.status==='Unassigned').slice(0,4);
   const requestList=unclaimedRequests.length?unclaimedRequests.map(r=>`
@@ -462,7 +492,7 @@ function renderSchedule(){
       }
       return`<td><div class="slot-cell slot-empty" onclick="openAddSlotModal(${member.id},'${t}')">+</div></td>`;
     }).join('');
-    return`<tr class="${isNow?'now-row':''}"><td class="time-label">${t.replace(/^0/,'')}</td>${cells}</tr>`;
+    return`<tr class="${isNow?'now-row':''}"><td class="time-label">${formatClockLabel(t)}</td>${cells}</tr>`;
   }).join('');
 
   return`
@@ -514,13 +544,19 @@ function renderRequests(){
     </div>`;
 }
 
+
 function renderMeetings(){
-  const rows=appData.meetings.map(m=>{
+  const rows=[...appData.meetings].sort((a,b)=>{
+    const sa=appData.slots.find(s=>s.id===a.slot_id);
+    const sb=appData.slots.find(s=>s.id===b.slot_id);
+    return parseConferenceTimestamp(sa?.start_time)-parseConferenceTimestamp(sb?.start_time);
+  }).map(m=>{
     const slot=appData.slots.find(s=>s.id===m.slot_id);
+    const offHoursBadge=slot&&isOffHoursTime(slot.start_time)?' <span class="badge badge-high">Off-hours</span>':'';
     return`<tr>
       <td><strong>${m.customer_name||'—'}</strong><br><span style="color:var(--text2);font-size:12px">${m.customer_company||''}</span></td>
       <td>${m.customer_industry||'—'}</td>
-      <td>${slot?formatTime(slot.start_time):'—'}</td>
+      <td>${slot?`<div>${formatDate(slot.start_time)}</div><div style="font-size:12px;color:var(--text2)">${formatTime(slot.start_time)}${offHoursBadge}</div>`:'—'}</td>
       <td>${slot?memberName(slot.member_id):'—'}</td>
       <td>${subspaceName(m.subspace_id)}</td>
       <td><span class="badge badge-${(m.status||'scheduled').toLowerCase()}">${m.status||'Scheduled'}</span></td>
@@ -533,7 +569,7 @@ function renderMeetings(){
       <button class="btn btn-primary" onclick="openAddMeetingModal()">+ Add meeting</button>
     </div>
     <div class="card" style="padding:0;overflow:hidden">
-      <table class="data-table"><thead><tr><th>Customer</th><th>Industry</th><th>Time</th><th>Owner</th><th>Sub-space</th><th>Status</th><th></th></tr></thead>
+      <table class="data-table"><thead><tr><th>Customer</th><th>Industry</th><th>Date & time</th><th>Owner</th><th>Sub-space</th><th>Status</th><th></th></tr></thead>
       <tbody>${rows||'<tr><td colspan="7"><div class="empty"><p>No meetings yet</p></div></td></tr>'}</tbody></table>
     </div>`;
 }
@@ -541,7 +577,7 @@ function renderMeetings(){
 function renderTeam(){
   const rows=appData.team.map(m=>{
     const today=appData.slots.filter(s=>s.member_id===m.id&&slotForDay(s,currentDay));
-    const attendingDays=CONF_DAYS.filter(d=>isPresent(m.id,d)).map(d=>new Date(d+'T12:00').toLocaleDateString('en-US',{weekday:'short'})).join(', ');
+    const attendingDays=CONF_DAYS.filter(d=>isPresent(m.id,d)).map(d=>PT_WEEKDAY_FORMATTER.format(pacificDateOnlyToSafeDate(d))).join(', ');
     return`<tr>
       <td><strong>${m.name}</strong></td>
       <td>${m.email||'—'}</td>
@@ -620,7 +656,7 @@ function renderMobMyDay(){
     <div class="alert alert-warn"><span>⚠</span><span>You are not scheduled to attend on this day. Select a different day or contact your admin.</span></div>
   </div>`;
 
-  const daySlots=appData.slots.filter(s=>s.member_id===mobMemberId&&slotForDay(s,mobCurrentDay)).sort((a,b)=>new Date(a.start_time)-new Date(b.start_time));
+  const daySlots=appData.slots.filter(s=>s.member_id===mobMemberId&&slotForDay(s,mobCurrentDay)).sort((a,b)=>parseConferenceTimestamp(a.start_time)-parseConferenceTimestamp(b.start_time));
   const slotCards=daySlots.length?daySlots.map(s=>{
     const type=(s.obligation_type||'Booth').toLowerCase();
     return`<div class="mob-slot mob-slot-${type}">
@@ -682,7 +718,7 @@ function renderMobCoverage(){
     </div>
     ${gaps.length?`<div class="mob-section">
       <div class="mob-section-title">Coverage gaps (${gaps.length} total today)</div>
-      ${gaps.slice(0,8).map(g=>`<div class="alert alert-danger" style="margin-bottom:6px"><span>⚠</span><span><strong>${g.subspace}</strong> uncovered at ${g.time.replace(/^0/,'')}</span></div>`).join('')}
+      ${gaps.slice(0,8).map(g=>`<div class="alert alert-danger" style="margin-bottom:6px"><span>⚠</span><span><strong>${g.subspace}</strong> uncovered at ${formatClockLabel(g.time)}</span></div>`).join('')}
       ${gaps.length>8?`<div style="font-size:12px;color:var(--text3);padding:4px 0">…and ${gaps.length-8} more</div>`:''}
     </div>`:`<div class="alert alert-info" style="margin-top:14px"><span>✓</span><span>All sub-spaces covered right now</span></div>`}
   </div>`;
@@ -761,6 +797,7 @@ function checkAttendance(){
   if(warn)warn.style.display=isPresent(memberId,date)?'none':'block';
 }
 
+
 async function saveSlot(){
   const member_id=parseInt(document.getElementById('sm-member').value);
   const subspace_id=parseInt(document.getElementById('sm-ss').value);
@@ -771,6 +808,7 @@ async function saveSlot(){
   const notes=document.getElementById('sm-notes').value;
   const start_time=buildDateTime(date,time);
   const end_time=addMinutes(start_time,duration);
+  if(!confirmNoOverlap(member_id,start_time,end_time,null,obligation_type.toLowerCase())){toast('Save cancelled so you can adjust the overlap','error');return;}
   try{
     await dbInsert('schedule_slot',{member_id,subspace_id,conference_id:CONFERENCE_ID,start_time,end_time,obligation_type,status:'Scheduled',notes});
     toast('Slot added','success');closeModal();await loadAll();render();
@@ -782,9 +820,9 @@ function openEditSlotModal(slotId){
   const memberOptions=appData.team.map(m=>`<option value="${m.id}" ${slot.member_id===m.id?'selected':''}>${m.name}</option>`).join('');
   const ssOptions=appData.subspaces.map(s=>`<option value="${s.id}" ${slot.subspace_id===s.id?'selected':''}>${s.name}</option>`).join('');
   const typeOptions=OBLIGATION_TYPES.map(t=>`<option value="${t}" ${slot.obligation_type===t?'selected':''}>${t}</option>`).join('');
-  const startDt=new Date(slot.start_time),endDt=new Date(slot.end_time);
-  const startDate=startDt.toISOString().slice(0,10);
-  const startTime=`${String(startDt.getHours()).padStart(2,'0')}:${String(startDt.getMinutes()).padStart(2,'0')}`;
+  const startDt=parseConferenceTimestamp(slot.start_time),endDt=parseConferenceTimestamp(slot.end_time);
+  const startDate=conferenceDateKey(slot.start_time);
+  const startTime=conferenceTime24(slot.start_time);
   const durMins=Math.round((endDt-startDt)/60000);
   const durOptions=DURATIONS.map(d=>`<option value="${d.minutes}" ${durMins===d.minutes?'selected':''}>${d.label}</option>`).join('');
   showModal(`
@@ -808,6 +846,7 @@ function openEditSlotModal(slotId){
       <button class="btn btn-primary" onclick="updateSlot(${slotId})">Save changes</button>
     </div>`);
 }
+
 async function updateSlot(id){
   const member_id=parseInt(document.getElementById('sm-member').value);
   const subspace_id=parseInt(document.getElementById('sm-ss').value);
@@ -816,8 +855,11 @@ async function updateSlot(id){
   const date=document.getElementById('sm-date').value;
   const time=document.getElementById('sm-time').value;
   const notes=document.getElementById('sm-notes').value;
+  const start_time=buildDateTime(date,time);
+  const end_time=addMinutes(start_time,duration);
+  if(!confirmNoOverlap(member_id,start_time,end_time,id,obligation_type.toLowerCase())){toast('Update cancelled so you can adjust the overlap','error');return;}
   try{
-    await dbUpdate('schedule_slot',id,{member_id,subspace_id,obligation_type,start_time:buildDateTime(date,time),end_time:addMinutes(buildDateTime(date,time),duration),notes});
+    await dbUpdate('schedule_slot',id,{member_id,subspace_id,obligation_type,start_time,end_time,notes});
     toast('Slot updated','success');closeModal();await loadAll();render();
   }catch(e){toast('Error updating slot','error');}
 }
@@ -905,9 +947,12 @@ async function claimRequest(requestId){
   }catch(e){toast('Error claiming ticket','error');}
 }
 
+
 function openAddMeetingModal(){
-  const slotOptions=appData.slots.map(s=>`<option value="${s.id}">${memberName(s.member_id)} · ${formatTime(s.start_time)} ${formatDate(s.start_time)}</option>`).join('');
   const ssOptions=appData.subspaces.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  const memberOptions=appData.team.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
+  const durOptions=DURATIONS.map(d=>`<option value="${d.minutes}" ${d.minutes===60?'selected':''}>${d.label}</option>`).join('');
+  const timeOptions=buildTimeOptions();
   showModal(`
     <div class="modal-title">Add customer meeting</div>
     <div class="form-row">
@@ -916,20 +961,51 @@ function openAddMeetingModal(){
     </div>
     <div class="form-row">
       <div class="form-group"><label>Industry</label><input id="mt-industry"></div>
-      <div class="form-group"><label>Sub-space</label><select id="mt-ss">${ssOptions}</select></div>
+      <div class="form-group"><label>Owner</label><select id="mt-member">${memberOptions}</select></div>
     </div>
-    <div class="form-group"><label>Schedule slot</label><select id="mt-slot"><option value="">— select a slot —</option>${slotOptions}</select></div>
+    <div class="form-row">
+      <div class="form-group"><label>Sub-space</label><select id="mt-ss">${ssOptions}</select></div>
+      <div class="form-group"><label>Duration</label><select id="mt-dur">${durOptions}</select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Date</label><input type="date" id="mt-date" value="${currentDay}" min="2026-07-13" max="2026-07-17"></div>
+      <div class="form-group"><label>Start time</label><select id="mt-time">${timeOptions}</select></div>
+    </div>
+    <div class="form-group"><label>Meeting notes (optional)</label><textarea id="mt-notes" placeholder="Customer topic, context, or meeting purpose"></textarea></div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal()">Cancel</button>
       <button class="btn btn-primary" onclick="saveMeeting()">Add meeting</button>
-<script>setTimeout(()=>{const t=document.getElementById('mt-time'); if(t) t.value='09:00';},0);</script>
     </div>`);
+  const t=document.getElementById('mt-time');
+  if(t)t.value='09:00';
 }
+
 async function saveMeeting(){
-  const body={customer_name:document.getElementById('mt-name').value,customer_company:document.getElementById('mt-company').value,customer_industry:document.getElementById('mt-industry').value,subspace_id:parseInt(document.getElementById('mt-ss').value),slot_id:parseInt(document.getElementById('mt-slot').value)||null,status:'Scheduled'};
-  if(!body.customer_name){toast('Customer name required','error');return;}
-  try{await dbInsert('customer_meeting',body);toast('Meeting added','success');closeModal();await loadAll();render();}
-  catch(e){toast('Error adding meeting','error');}
+  const customer_name=document.getElementById('mt-name').value.trim();
+  const customer_company=document.getElementById('mt-company').value.trim();
+  const customer_industry=document.getElementById('mt-industry').value.trim();
+  const member_id=parseInt(document.getElementById('mt-member').value);
+  const subspace_id=parseInt(document.getElementById('mt-ss').value);
+  const duration=parseInt(document.getElementById('mt-dur').value);
+  const date=document.getElementById('mt-date').value;
+  const rawTime=document.getElementById('mt-time').value;
+  const meeting_notes=document.getElementById('mt-notes').value.trim();
+  if(!customer_name){toast('Customer name required','error');return;}
+  if(!date||!rawTime){toast('Meeting date and time are required','error');return;}
+  if(date<'2026-07-13'||date>'2026-07-17'){toast('Meetings must be scheduled between Jul 13 and Jul 17','error');return;}
+  const time=snapTo30Min(rawTime);
+  if(time<'08:00'||time>'21:00'){toast('Meeting time must be between 8:00 AM and 9:00 PM','error');return;}
+  const start_time=buildDateTime(date,time);
+  const end_time=addMinutes(start_time,duration);
+  if(!confirmNoOverlap(member_id,start_time,end_time,null,'meeting')){toast('Meeting save cancelled so you can adjust the overlap','error');return;}
+  try{
+    const slotNotes=[customer_name,customer_company].filter(Boolean).join(' · ')+(meeting_notes?` — ${meeting_notes}`:'');
+    const slotRows=await dbInsert('schedule_slot',{member_id,subspace_id,conference_id:CONFERENCE_ID,start_time,end_time,obligation_type:'Meeting',status:'Scheduled',notes:slotNotes});
+    const slot_id=Array.isArray(slotRows)&&slotRows.length?slotRows[0].id:null;
+    if(!slot_id)throw new Error('Schedule slot was created but no slot_id was returned.');
+    await dbInsert('customer_meeting',{customer_name,customer_company,customer_industry,subspace_id,slot_id,status:'Scheduled'});
+    toast('Meeting added','success');closeModal();await loadAll();render();
+  }catch(e){toast('Error adding meeting','error');console.error(e);}
 }
 
 function openOutcomeModal(meetingId){
