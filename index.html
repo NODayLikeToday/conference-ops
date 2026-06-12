@@ -313,40 +313,16 @@ const PT_DATE_FORMATTER=new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIM
 const PT_DAY_LABEL_FORMATTER=new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,weekday:'long',month:'short',day:'numeric'});
 const PT_WEEKDAY_FORMATTER=new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,weekday:'short'});
 function formatterParts(date,fmt){return fmt.formatToParts(date).reduce((acc,part)=>{if(part.type!=='literal')acc[part.type]=part.value;return acc;},{});}
-function getTimeZoneOffsetMinutes(date,timeZone){
-  const parts=new Intl.DateTimeFormat('en-US',{timeZone,hour12:false,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}).formatToParts(date);
-  const map={};
-  for(const part of parts){if(part.type!=='literal')map[part.type]=part.value;}
-  const asUtc=Date.UTC(Number(map.year),Number(map.month)-1,Number(map.day),Number(map.hour),Number(map.minute),Number(map.second));
-  return(asUtc-date.getTime())/60000;
-}
-function pacificDateTimeToUtcIso(dateStr,timeStr){
-  const[year,month,day]=dateStr.split('-').map(Number);
-  const[hour,minute]=timeStr.split(':').map(Number);
-  const utcGuess=new Date(Date.UTC(year,month-1,day,hour,minute,0));
-  const offsetMinutes=getTimeZoneOffsetMinutes(utcGuess,CONFERENCE_TIME_ZONE);
-  const utcMillis=Date.UTC(year,month-1,day,hour,minute,0)-(offsetMinutes*60*1000);
-  return new Date(utcMillis).toISOString();
-}
-function pacificDateOnlyToSafeDate(dateStr){
-  const[year,month,day]=dateStr.split('-').map(Number);
-  return new Date(Date.UTC(year,month-1,day,12,0,0));
-}
-function parseConferenceTimestamp(value){
-  if(!value)return null;
-  if(value instanceof Date)return Number.isNaN(value.getTime())?null:value;
-  const raw=String(value).trim();
-  const naive=raw.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?$/);
-  if(naive && !/(?:Z|[+-]\d{2}:\d{2})$/i.test(raw)) return new Date(pacificDateTimeToUtcIso(naive[1],naive[2]));
-  const parsed=new Date(raw);
-  return Number.isNaN(parsed.getTime())?null:parsed;
-}
+function getTimeZoneOffsetMinutes(date,timeZone){ const parts=new Intl.DateTimeFormat('en-US',{timeZone,hour12:false,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}).formatToParts(date); const map={}; for(const part of parts){if(part.type!=='literal')map[part.type]=part.value;} const asUtc=Date.UTC(Number(map.year),Number(map.month)-1,Number(map.day),Number(map.hour),Number(map.minute),Number(map.second)); return(asUtc-date.getTime())/60000; }
+function pacificDateTimeToUtcIso(dateStr,timeStr){ const[year,month,day]=dateStr.split('-').map(Number); const[hour,minute]=timeStr.split(':').map(Number); const utcGuess=new Date(Date.UTC(year,month-1,day,hour,minute,0)); const offsetMinutes=getTimeZoneOffsetMinutes(utcGuess,CONFERENCE_TIME_ZONE); const utcMillis=Date.UTC(year,month-1,day,hour,minute,0)-(offsetMinutes*60*1000); return new Date(utcMillis).toISOString(); }
+function pacificDateOnlyToSafeDate(dateStr){ const[year,month,day]=dateStr.split('-').map(Number); return new Date(Date.UTC(year,month-1,day,12,0,0)); }
+function parseConferenceTimestamp(value){ if(!value)return null; if(value instanceof Date)return Number.isNaN(value.getTime())?null:value; const raw=String(value).trim(); const naive=raw.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?$/); if(naive && !/(?:Z|[+-]\d{2}:\d{2})$/i.test(raw)) return new Date(pacificDateTimeToUtcIso(naive[1],naive[2])); const parsed=new Date(raw); return Number.isNaN(parsed.getTime())?null:parsed; }
 function conferenceDateKey(value){ const d=parseConferenceTimestamp(value); if(!d)return''; const parts=formatterParts(d,new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,year:'numeric',month:'2-digit',day:'2-digit'})); return`${parts.year}-${parts.month}-${parts.day}`; }
 function conferenceTime24(value){ const d=parseConferenceTimestamp(value); if(!d)return''; const parts=formatterParts(d,new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,hour12:false,hour:'2-digit',minute:'2-digit'})); return`${parts.hour}:${parts.minute}`; }
 function conferenceMinutes(value){ const hm=conferenceTime24(value); if(!hm)return 0; const[h,m]=hm.split(':').map(Number); return h*60+m; }
 function formatClockLabel(timeStr){ if(!timeStr)return''; const[hStr,mStr]=timeStr.split(':'); let h=Number(hStr),m=Number(mStr||0); const ap=h>=12?'PM':'AM'; h=h%12||12; return`${h}:${String(m).padStart(2,'0')} ${ap}`; }
 function snapTo30Min(timeStr){ const[hRaw,mRaw]=timeStr.split(':').map(Number); let h=hRaw,m=mRaw<15?0:mRaw<45?30:60; if(m===60){m=0;h+=1;} return`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`; }
-function buildTimeOptions(){ const times=[]; for(let h=8;h<=21;h++){ for(const m of [0,30]){ const hh=String(h).padStart(2,'0'); const mm=String(m).padStart(2,'0'); times.push(`${hh}:${mm}`);} } return times.map(t=>`<option value="${t}">${formatClockLabel(t)}</option>`).join(''); }
+function buildTimeOptions(){ const times=[]; for(let h=8;h<=21;h++){ for(const m of [0,30]){ const hh=String(h).padStart(2,'0'); const mm=String(m).padStart(2,'0'); times.push(`${hh}:${mm}`);} } return times.map(t=>`<option value=\"${t}\">${formatClockLabel(t)}</option>`).join(''); }
 function isOffHoursTime(value){ const mins=conferenceMinutes(value); return mins<8*60 || mins>=(17*60+30); }
 function formatTime(ts){ const d=parseConferenceTimestamp(ts); return d?PT_TIME_FORMATTER.format(d):''; }
 function formatDate(ts){ const d=parseConferenceTimestamp(ts); return d?PT_DATE_FORMATTER.format(d):''; }
@@ -360,7 +336,7 @@ function nowTimeStr(){ const parts=formatterParts(new Date(),new Intl.DateTimeFo
 function dayLabel(dateStr){return PT_DAY_LABEL_FORMATTER.format(pacificDateOnlyToSafeDate(dateStr));}
 function describeSlotForAlert(slot){ const title=slot.obligation_type||'Event'; const detail=slot.notes?` · ${slot.notes}`:''; return `${title} — ${formatDate(slot.start_time)} ${formatTime(slot.start_time)} to ${formatTime(slot.end_time)}${detail}`; }
 function findOverlappingSlots(memberId,startTime,endTime,excludeId=null){ const start=parseConferenceTimestamp(startTime),end=parseConferenceTimestamp(endTime); if(!start||!end)return[]; return appData.slots.filter(s=>s.member_id===memberId&&(excludeId==null||s.id!==excludeId)).filter(s=>{ const existingStart=parseConferenceTimestamp(s.start_time),existingEnd=parseConferenceTimestamp(s.end_time); return existingStart&&existingEnd&&start<existingEnd&&end>existingStart; }).sort((a,b)=>parseConferenceTimestamp(a.start_time)-parseConferenceTimestamp(b.start_time)); }
-function confirmNoOverlap(memberId,startTime,endTime,excludeId=null,label='event'){ const overlaps=findOverlappingSlots(memberId,startTime,endTime,excludeId); if(!overlaps.length)return true; const overlapLines=overlaps.map(s=>`• ${describeSlotForAlert(s)}`).join('\n'); return window.confirm(`Potential overlap detected for ${memberName(memberId)} when saving this ${label}:\n\n${overlapLines}\n\nClick OK to save anyway, or Cancel to go back and adjust the time.`); }
+function confirmNoOverlap(memberId,startTime,endTime,excludeId=null,label='event'){ const overlaps=findOverlappingSlots(memberId,startTime,endTime,excludeId); if(!overlaps.length)return true; const overlapLines=overlaps.map(s=>`• ${describeSlotForAlert(s)}`).join('\\n'); return window.confirm(`Potential overlap detected for ${memberName(memberId)} when saving this ${label}:\\n\\n${overlapLines}\\n\\nClick OK to save anyway, or Cancel to go back and adjust the time.`); }
 // ── Coverage analysis ──
 function analyzeCoverage(day){
   const slots=timeSlots(),daySlots=appData.slots.filter(s=>slotForDay(s,day)),gaps=[];
@@ -559,14 +535,16 @@ function renderMeetings(){
   }).map(m=>{
     const slot=appData.slots.find(s=>s.id===m.slot_id);
     const offHoursBadge=slot&&isOffHoursTime(slot.start_time)?' <span class="badge badge-high">Off-hours</span>':'';
+    const whenHtml=(slot && m.status!=='Cancelled')?`<div>${formatDate(slot.start_time)}</div><div style="font-size:12px;color:var(--text2)">${formatTime(slot.start_time)}${offHoursBadge}</div>`:'—';
+    const cancelBtn=m.status!=='Cancelled'?`<button class="btn btn-sm btn-danger" onclick="cancelMeeting(${m.id})">Cancel</button>`:'';
     return`<tr>
       <td><strong>${m.customer_name||'—'}</strong><br><span style="color:var(--text2);font-size:12px">${m.customer_company||''}</span></td>
       <td>${m.customer_industry||'—'}</td>
-      <td>${slot?`<div>${formatDate(slot.start_time)}</div><div style="font-size:12px;color:var(--text2)">${formatTime(slot.start_time)}${offHoursBadge}</div>`:'—'}</td>
+      <td>${whenHtml}</td>
       <td>${slot?memberName(slot.member_id):'—'}</td>
       <td>${subspaceName(m.subspace_id)}</td>
       <td><span class="badge badge-${(m.status||'scheduled').toLowerCase()}">${m.status||'Scheduled'}</span></td>
-      <td><button class="btn btn-sm" onclick="openOutcomeModal(${m.id})">Log outcome</button></td>
+      <td><button class="btn btn-sm" onclick="openOutcomeModal(${m.id})">Log outcome</button> ${cancelBtn}</td>
     </tr>`;
   }).join('');
   return`
@@ -697,13 +675,19 @@ async function confirmDeleteSlot(slotId){
     </div>`);
 }
 async function deleteMobSlot(id){
+  const linkedMeetings=appData.meetings.filter(m=>m.slot_id===id);
   try{
+    if(linkedMeetings.length){
+      const ok=confirm(`This will cancel ${linkedMeetings.length} linked meeting(s) and remove the slot from the schedule. Continue?`);
+      if(!ok)return;
+      for(const m of linkedMeetings){ await dbUpdate('customer_meeting',m.id,{status:'Cancelled',slot_id:null}); }
+    }
     await dbDelete('schedule_slot',id);
-    toast('Slot removed');
+    toast(linkedMeetings.length?'Meeting cancelled':'Slot removed');
     closeModal();
     await loadAll();
     renderMob();
-  }catch(e){toast('Error removing slot','error');}
+  }catch(e){console.error(e);toast(linkedMeetings.length?'Error cancelling meeting':'Error removing slot','error');}
 }
 
 function renderMobCoverage(){
@@ -869,10 +853,24 @@ async function updateSlot(id){
     toast('Slot updated','success');closeModal();await loadAll();render();
   }catch(e){toast('Error updating slot','error');}
 }
+
 async function deleteSlot(id){
-  if(!confirm('Delete this slot?'))return;
-  try{await dbDelete('schedule_slot',id);toast('Slot deleted');closeModal();await loadAll();render();}
-  catch(e){toast('Error deleting slot','error');}
+  const linkedMeetings=appData.meetings.filter(m=>m.slot_id===id);
+  if(linkedMeetings.length){
+    const ok=confirm(`Cancel ${linkedMeetings.length} linked meeting(s) and remove the slot from the schedule?`);
+    if(!ok)return;
+  }else{
+    const ok=confirm('Delete this slot?');
+    if(!ok)return;
+  }
+  try{
+    for(const m of linkedMeetings){ await dbUpdate('customer_meeting',m.id,{status:'Cancelled',slot_id:null}); }
+    await dbDelete('schedule_slot',id);
+    toast(linkedMeetings.length?'Meeting cancelled':'Slot deleted','success');
+    closeModal();
+    await loadAll();
+    render();
+  }catch(e){console.error(e);toast(linkedMeetings.length?'Error cancelling meeting':'Error deleting slot','error');}
 }
 
 // Meeting request
@@ -914,11 +912,7 @@ function openRequestModal(){
       <button class="btn btn-primary" onclick="saveRequest()">Submit request</button>
     </div>`);
 }
-function toggleOtherMember(){
-  const val=document.getElementById('rq-member').value;
-  const wrap=document.getElementById('rq-other-wrap');
-  if(wrap)wrap.style.display=val==='other'?'block':'none';
-}
+function toggleOtherMember(){ const val=document.getElementById('rq-member').value; const wrap=document.getElementById('rq-other-wrap'); if(wrap)wrap.style.display=val==='other'?'block':'none'; }
 
 async function saveRequest(){
   const memberVal=document.getElementById('rq-member').value;
@@ -996,22 +990,14 @@ function openRequestEditModal(requestId){
     </div>`);
   const t=document.getElementById('ru-time'); if(t)t.value='09:00';
 }
-function toggleRequestScheduleSection(){
-  const wrap=document.getElementById('ru-schedule-wrap');
-  const status=document.getElementById('ru-status').value;
-  if(wrap)wrap.style.display=status==='Cancelled'?'none':'block';
-}
+function toggleRequestScheduleSection(){ const wrap=document.getElementById('ru-schedule-wrap'); const status=document.getElementById('ru-status').value; if(wrap)wrap.style.display=status==='Cancelled'?'none':'block'; }
 async function updateRequest(requestId){
   const req=appData.requests.find(r=>r.id===requestId);if(!req)return;
   const status=document.getElementById('ru-status').value;
   try{
     if(status==='Cancelled'){
       await dbUpdate('meeting_request',requestId,{status:'Cancelled'});
-      toast('Request cancelled','success');
-      closeModal();
-      await loadAll();
-      render();
-      return;
+      toast('Request cancelled','success'); closeModal(); await loadAll(); render(); return;
     }
     const date=document.getElementById('ru-date').value;
     const rawTime=document.getElementById('ru-time').value;
@@ -1061,8 +1047,7 @@ function openAddMeetingModal(){
       <button class="btn" onclick="closeModal()">Cancel</button>
       <button class="btn btn-primary" onclick="saveMeeting()">Add meeting</button>
     </div>`);
-  const t=document.getElementById('mt-time');
-  if(t)t.value='09:00';
+  const t=document.getElementById('mt-time'); if(t)t.value='09:00';
 }
 
 async function saveMeeting(){
@@ -1091,6 +1076,19 @@ async function saveMeeting(){
     await dbInsert('customer_meeting',{customer_name,customer_company,customer_industry,subspace_id,slot_id,status:'Scheduled'});
     toast('Meeting added','success');closeModal();await loadAll();render();
   }catch(e){toast('Error adding meeting','error');console.error(e);}
+}
+
+async function cancelMeeting(meetingId){
+  const meeting=appData.meetings.find(m=>m.id===meetingId); if(!meeting) return;
+  const ok=confirm('Cancel this meeting? This will remove it from the schedule and keep the meeting record marked as Cancelled.');
+  if(!ok) return;
+  try{
+    await dbUpdate('customer_meeting',meetingId,{status:'Cancelled',slot_id:null});
+    if(meeting.slot_id){ await dbDelete('schedule_slot',meeting.slot_id); }
+    toast('Meeting cancelled','success');
+    await loadAll();
+    render();
+  }catch(e){ console.error(e); toast('Error cancelling meeting','error'); }
 }
 
 function openOutcomeModal(meetingId){
