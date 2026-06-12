@@ -305,30 +305,90 @@ function timeSlots(){
   }
   return s;
 }
-function formatTime(ts){
-  if(!ts)return'';
-  const d=new Date(ts);let h=d.getHours(),m=d.getMinutes();
-  const ap=h>=12?'PM':'AM';if(h>12)h-=12;if(h===0)h=12;
-  return`${h}:${String(m).padStart(2,'0')} ${ap}`;
-}
-function formatDate(ts){if(!ts)return'';return new Date(ts).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});}
-function slotForDay(slot,day){
-  const d=new Date(slot.start_time),dy=day||currentDay;
-  return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`===dy;
-}
-function slotCoversTime(slot,timeStr){
-  const[sh,sm]=timeStr.split(':').map(Number);
-  const start=new Date(slot.start_time),end=new Date(slot.end_time);
-  const slotMin=sh*60+sm,startMin=start.getHours()*60+start.getMinutes(),endMin=end.getHours()*60+end.getMinutes();
-  return slotMin>=startMin&&slotMin<endMin;
-}
-function memberName(id){const m=appData.team.find(t=>t.id===id);return m?m.name:'—';}
-function subspaceName(id){const s=appData.subspaces.find(x=>x.id===id);return s?s.name:'—';}
-function buildDateTime(date,time){return`${date}T${time}:00`;}
-function addMinutes(dt,mins){const d=new Date(dt);d.setMinutes(d.getMinutes()+mins);return d.toISOString().slice(0,16);}
-function nowTimeStr(){const d=new Date();return`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()-d.getMinutes()%30).padStart(2,'0')}`;}
-function dayLabel(dateStr){return new Date(dateStr+'T12:00').toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});}
-
+const CONFERENCE_TIME_ZONE='America/Los_Angeles';  
+const PT_TIME_FORMATTER=new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,hour:'numeric',minute:'2-digit',hour12:true});  
+const PT_DATE_FORMATTER=new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,weekday:'short',month:'short',day:'numeric'});  
+const PT_DAY_LABEL_FORMATTER=new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,weekday:'long',month:'short',day:'numeric'});  
+const PT_WEEKDAY_FORMATTER=new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,weekday:'short'});  
+function getFormatterParts(date,fmt){return fmt.formatToParts(date).reduce((acc,part)=>{if(part.type!=='literal')acc[part.type]=part.value;return acc;},{});}  
+function getTimeZoneOffsetMinutes(date,timeZone){  
+  const parts=new Intl.DateTimeFormat('en-US',{timeZone,hour12:false,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}).formatToParts(date);  
+  const map={};  
+  for(const part of parts){if(part.type!=='literal')map[part.type]=part.value;}  
+  const asUtc=Date.UTC(Number(map.year),Number(map.month)-1,Number(map.day),Number(map.hour),Number(map.minute),Number(map.second));  
+  return(asUtc-date.getTime())/60000;  
+}  
+function pacificDateTimeToUtcIso(dateStr,timeStr){  
+  const[year,month,day]=dateStr.split('-').map(Number);  
+  const[hour,minute]=timeStr.split(':').map(Number);  
+  const utcGuess=new Date(Date.UTC(year,month-1,day,hour,minute,0));  
+  const offsetMinutes=getTimeZoneOffsetMinutes(utcGuess,CONFERENCE_TIME_ZONE);  
+  const utcMillis=Date.UTC(year,month-1,day,hour,minute,0)-(offsetMinutes*60*1000);  
+  return new Date(utcMillis).toISOString();  
+}  
+function pacificDateOnlyToSafeDate(dateStr){  
+  const[year,month,day]=dateStr.split('-').map(Number);  
+  return new Date(Date.UTC(year,month-1,day,12,0,0));  
+}  
+function parseConferenceTimestamp(value){  
+  if(!value)return null;  
+  if(value instanceof Date)return Number.isNaN(value.getTime())?null:value;  
+  if(typeof value==='string'){  
+    const trimmed=value.trim();  
+    const naive=trimmed.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?$/);  
+    if(naive){return new Date(pacificDateTimeToUtcIso(naive[1],naive[2]));}  
+    const parsed=new Date(trimmed);  
+    return Number.isNaN(parsed.getTime())?null:parsed;  
+  }  
+  const parsed=new Date(value);  
+  return Number.isNaN(parsed.getTime())?null:parsed;  
+}  
+function dateKeyInConferenceTime(ts){  
+  const d=parseConferenceTimestamp(ts);  
+  if(!d)return'';  
+  const parts=getFormatterParts(d,new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,year:'numeric',month:'2-digit',day:'2-digit'}));  
+  return`${parts.year}-${parts.month}-${parts.day}`;  
+}  
+function time24InConferenceTime(ts){  
+  const d=parseConferenceTimestamp(ts);  
+  if(!d)return'';  
+  const parts=getFormatterParts(d,new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,hour12:false,hour:'2-digit',minute:'2-digit'}));  
+  return`${parts.hour}:${parts.minute}`;  
+}  
+function timeMinutesInConferenceTime(ts){  
+  const hm=time24InConferenceTime(ts);  
+  if(!hm)return 0;  
+  const[h,m]=hm.split(':').map(Number);  
+  return h*60+m;  
+}  
+function formatTime(ts){  
+  const d=parseConferenceTimestamp(ts);  
+  return d?PT_TIME_FORMATTER.format(d):'';  
+}  
+function formatDate(ts){  
+  const d=parseConferenceTimestamp(ts);  
+  return d?PT_DATE_FORMATTER.format(d):'';  
+}  
+function slotForDay(slot,day){  
+  return dateKeyInConferenceTime(slot.start_time)===(day||currentDay);  
+}  
+function slotCoversTime(slot,timeStr){  
+  const[sh,sm]=timeStr.split(':').map(Number);  
+  const slotMin=sh*60+sm,startMin=timeMinutesInConferenceTime(slot.start_time),endMin=timeMinutesInConferenceTime(slot.end_time);  
+  return slotMin>=startMin&&slotMin<endMin;  
+}  
+function memberName(id){const m=appData.team.find(t=>t.id===id);return m?m.name:'—';}  
+function subspaceName(id){const s=appData.subspaces.find(x=>x.id===id);return s?s.name:'—';}  
+function buildDateTime(date,time){return pacificDateTimeToUtcIso(date,time);}  
+function addMinutes(dt,mins){const d=parseConferenceTimestamp(dt);if(!d)return'';d.setUTCMinutes(d.getUTCMinutes()+mins);return d.toISOString();}  
+function nowTimeStr(){  
+  const parts=getFormatterParts(new Date(),new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,hour12:false,hour:'2-digit',minute:'2-digit'}));  
+  const hour=Number(parts.hour);  
+  const minute=Number(parts.minute);  
+  const rounded=minute-minute%30;  
+  return`${String(hour).padStart(2,'0')}:${String(rounded).padStart(2,'0')}`;  
+}  
+function dayLabel(dateStr){return PT_DAY_LABEL_FORMATTER.format(pacificDateOnlyToSafeDate(dateStr));}  
 // ── Coverage analysis ──
 function analyzeCoverage(day){
   const slots=timeSlots(),daySlots=appData.slots.filter(s=>slotForDay(s,day)),gaps=[];
@@ -541,7 +601,7 @@ function renderMeetings(){
 function renderTeam(){
   const rows=appData.team.map(m=>{
     const today=appData.slots.filter(s=>s.member_id===m.id&&slotForDay(s,currentDay));
-    const attendingDays=CONF_DAYS.filter(d=>isPresent(m.id,d)).map(d=>new Date(d+'T12:00').toLocaleDateString('en-US',{weekday:'short'})).join(', ');
+    const attendingDays=CONF_DAYS.filter(d=>isPresent(m.id,d)).map(d=>PT_WEEKDAY_FORMATTER.format(pacificDateOnlyToSafeDate(d))).join(', ');
     return`<tr>
       <td><strong>${m.name}</strong></td>
       <td>${m.email||'—'}</td>
@@ -620,7 +680,7 @@ function renderMobMyDay(){
     <div class="alert alert-warn"><span>⚠</span><span>You are not scheduled to attend on this day. Select a different day or contact your admin.</span></div>
   </div>`;
 
-  const daySlots=appData.slots.filter(s=>s.member_id===mobMemberId&&slotForDay(s,mobCurrentDay)).sort((a,b)=>new Date(a.start_time)-new Date(b.start_time));
+  const daySlots=appData.slots.filter(s=>s.member_id===mobMemberId&&slotForDay(s,mobCurrentDay)).sort((a,b)=>parseConferenceTimestamp(a.start_time)-parseConferenceTimestamp(b.start_time));
   const slotCards=daySlots.length?daySlots.map(s=>{
     const type=(s.obligation_type||'Booth').toLowerCase();
     return`<div class="mob-slot mob-slot-${type}">
@@ -782,9 +842,9 @@ function openEditSlotModal(slotId){
   const memberOptions=appData.team.map(m=>`<option value="${m.id}" ${slot.member_id===m.id?'selected':''}>${m.name}</option>`).join('');
   const ssOptions=appData.subspaces.map(s=>`<option value="${s.id}" ${slot.subspace_id===s.id?'selected':''}>${s.name}</option>`).join('');
   const typeOptions=OBLIGATION_TYPES.map(t=>`<option value="${t}" ${slot.obligation_type===t?'selected':''}>${t}</option>`).join('');
-  const startDt=new Date(slot.start_time),endDt=new Date(slot.end_time);
-  const startDate=startDt.toISOString().slice(0,10);
-  const startTime=`${String(startDt.getHours()).padStart(2,'0')}:${String(startDt.getMinutes()).padStart(2,'0')}`;
+  const startDt=parseConferenceTimestamp(slot.start_time),endDt=parseConferenceTimestamp(slot.end_time);
+  const startDate=dateKeyInConferenceTime(slot.start_time);
+  const startTime=time24InConferenceTime(slot.start_time);
   const durMins=Math.round((endDt-startDt)/60000);
   const durOptions=DURATIONS.map(d=>`<option value="${d.minutes}" ${durMins===d.minutes?'selected':''}>${d.label}</option>`).join('');
   showModal(`
