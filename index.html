@@ -316,7 +316,7 @@ function getTimeZoneOffsetMinutes(date,timeZone){
   const map={};
   for(const part of parts){if(part.type!=='literal')map[part.type]=part.value;}
   const asUtc=Date.UTC(Number(map.year),Number(map.month)-1,Number(map.day),Number(map.hour),Number(map.minute),Number(map.second));
-  return (asUtc-date.getTime())/60000;
+  return(asUtc-date.getTime())/60000;
 }
 function pacificDateTimeToUtcIso(dateStr,timeStr){
   const[year,month,day]=dateStr.split('-').map(Number);
@@ -343,15 +343,15 @@ function parseConferenceTimestamp(value){
 }
 function conferenceDateKey(value){
   const d=parseConferenceTimestamp(value);
-  if(!d)return '';
+  if(!d)return'';
   const parts=formatterParts(d,new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,year:'numeric',month:'2-digit',day:'2-digit'}));
-  return `${parts.year}-${parts.month}-${parts.day}`;
+  return`${parts.year}-${parts.month}-${parts.day}`;
 }
 function conferenceTime24(value){
   const d=parseConferenceTimestamp(value);
-  if(!d)return '';
+  if(!d)return'';
   const parts=formatterParts(d,new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,hour12:false,hour:'2-digit',minute:'2-digit'}));
-  return `${parts.hour}:${parts.minute}`;
+  return`${parts.hour}:${parts.minute}`;
 }
 function conferenceMinutes(value){
   const hm=conferenceTime24(value);
@@ -360,12 +360,12 @@ function conferenceMinutes(value){
   return h*60+m;
 }
 function formatClockLabel(timeStr){
-  if(!timeStr)return '';
+  if(!timeStr)return'';
   const[hStr,mStr]=timeStr.split(':');
   let h=Number(hStr),m=Number(mStr||0);
   const ap=h>=12?'PM':'AM';
   h=h%12||12;
-  return `${h}:${String(m).padStart(2,'0')} ${ap}`;
+  return`${h}:${String(m).padStart(2,'0')} ${ap}`;
 }
 function formatTime(ts){
   const d=parseConferenceTimestamp(ts);
@@ -388,16 +388,35 @@ function subspaceName(id){const s=appData.subspaces.find(x=>x.id===id);return s?
 function buildDateTime(date,time){return pacificDateTimeToUtcIso(date,time);}
 function addMinutes(dt,mins){
   const d=parseConferenceTimestamp(dt);
-  if(!d)return '';
+  if(!d)return'';
   d.setUTCMinutes(d.getUTCMinutes()+mins);
   return d.toISOString();
 }
 function nowTimeStr(){
   const parts=formatterParts(new Date(),new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,hour12:false,hour:'2-digit',minute:'2-digit'}));
   const hour=Number(parts.hour),minute=Number(parts.minute),rounded=minute-minute%30;
-  return `${String(hour).padStart(2,'0')}:${String(rounded).padStart(2,'0')}`;
+  return`${String(hour).padStart(2,'0')}:${String(rounded).padStart(2,'0')}`;
 }
 function dayLabel(dateStr){return PT_DAY_LABEL_FORMATTER.format(pacificDateOnlyToSafeDate(dateStr));}
+function describeSlotForAlert(slot){
+  const title=slot.obligation_type||'Event';
+  const detail=slot.notes?` · ${slot.notes}`:'';
+  return `${title} — ${formatDate(slot.start_time)} ${formatTime(slot.start_time)} to ${formatTime(slot.end_time)}${detail}`;
+}
+function findOverlappingSlots(memberId,startTime,endTime,excludeId=null){
+  const start=parseConferenceTimestamp(startTime),end=parseConferenceTimestamp(endTime);
+  if(!start||!end)return[];
+  return appData.slots.filter(s=>s.member_id===memberId&&(excludeId==null||s.id!==excludeId)).filter(s=>{
+    const existingStart=parseConferenceTimestamp(s.start_time),existingEnd=parseConferenceTimestamp(s.end_time);
+    return existingStart&&existingEnd&&start<existingEnd&&end>existingStart;
+  }).sort((a,b)=>parseConferenceTimestamp(a.start_time)-parseConferenceTimestamp(b.start_time));
+}
+function confirmNoOverlap(memberId,startTime,endTime,excludeId=null,label='event'){
+  const overlaps=findOverlappingSlots(memberId,startTime,endTime,excludeId);
+  if(!overlaps.length)return true;
+  const overlapLines=overlaps.map(s=>`• ${describeSlotForAlert(s)}`).join('\n');
+  return window.confirm(`Potential overlap detected for ${memberName(memberId)} when saving this ${label}:\n\n${overlapLines}\n\nClick OK to save anyway, or Cancel to go back and adjust the time.`);
+}
 // ── Coverage analysis ──
 function analyzeCoverage(day){
   const slots=timeSlots(),daySlots=appData.slots.filter(s=>slotForDay(s,day)),gaps=[];
@@ -840,6 +859,7 @@ async function saveSlot(){
   const notes=document.getElementById('sm-notes').value;
   const start_time=buildDateTime(date,time);
   const end_time=addMinutes(start_time,duration);
+  if(!confirmNoOverlap(member_id,start_time,end_time,null,obligation_type.toLowerCase())){toast('Save cancelled so you can adjust the overlap','error');return;}
   try{
     await dbInsert('schedule_slot',{member_id,subspace_id,conference_id:CONFERENCE_ID,start_time,end_time,obligation_type,status:'Scheduled',notes});
     toast('Slot added','success');closeModal();await loadAll();render();
@@ -885,8 +905,11 @@ async function updateSlot(id){
   const date=document.getElementById('sm-date').value;
   const time=document.getElementById('sm-time').value;
   const notes=document.getElementById('sm-notes').value;
+  const start_time=buildDateTime(date,time);
+  const end_time=addMinutes(start_time,duration);
+  if(!confirmNoOverlap(member_id,start_time,end_time,id,obligation_type.toLowerCase())){toast('Update cancelled so you can adjust the overlap','error');return;}
   try{
-    await dbUpdate('schedule_slot',id,{member_id,subspace_id,obligation_type,start_time:buildDateTime(date,time),end_time:addMinutes(buildDateTime(date,time),duration),notes});
+    await dbUpdate('schedule_slot',id,{member_id,subspace_id,obligation_type,start_time,end_time,notes});
     toast('Slot updated','success');closeModal();await loadAll();render();
   }catch(e){toast('Error updating slot','error');}
 }
@@ -975,8 +998,9 @@ async function claimRequest(requestId){
 }
 
 function openAddMeetingModal(){
-  const slotOptions=appData.slots.map(s=>`<option value="${s.id}">${memberName(s.member_id)} · ${formatTime(s.start_time)} ${formatDate(s.start_time)}</option>`).join('');
   const ssOptions=appData.subspaces.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  const memberOptions=appData.team.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
+  const durOptions=DURATIONS.map(d=>`<option value="${d.minutes}" ${d.minutes===60?'selected':''}>${d.label}</option>`).join('');
   showModal(`
     <div class="modal-title">Add customer meeting</div>
     <div class="form-row">
@@ -985,19 +1009,45 @@ function openAddMeetingModal(){
     </div>
     <div class="form-row">
       <div class="form-group"><label>Industry</label><input id="mt-industry"></div>
-      <div class="form-group"><label>Sub-space</label><select id="mt-ss">${ssOptions}</select></div>
+      <div class="form-group"><label>Owner</label><select id="mt-member">${memberOptions}</select></div>
     </div>
-    <div class="form-group"><label>Schedule slot</label><select id="mt-slot"><option value="">— select a slot —</option>${slotOptions}</select></div>
+    <div class="form-row">
+      <div class="form-group"><label>Sub-space</label><select id="mt-ss">${ssOptions}</select></div>
+      <div class="form-group"><label>Duration</label><select id="mt-dur">${durOptions}</select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Date</label><input type="date" id="mt-date" value="${currentDay}"></div>
+      <div class="form-group"><label>Start time</label><input type="time" id="mt-time" value="09:00" step="900"></div>
+    </div>
+    <div class="form-group"><label>Meeting notes (optional)</label><textarea id="mt-notes" placeholder="Customer topic, context, or meeting purpose"></textarea></div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal()">Cancel</button>
       <button class="btn btn-primary" onclick="saveMeeting()">Add meeting</button>
     </div>`);
 }
 async function saveMeeting(){
-  const body={customer_name:document.getElementById('mt-name').value,customer_company:document.getElementById('mt-company').value,customer_industry:document.getElementById('mt-industry').value,subspace_id:parseInt(document.getElementById('mt-ss').value),slot_id:parseInt(document.getElementById('mt-slot').value)||null,status:'Scheduled'};
-  if(!body.customer_name){toast('Customer name required','error');return;}
-  try{await dbInsert('customer_meeting',body);toast('Meeting added','success');closeModal();await loadAll();render();}
-  catch(e){toast('Error adding meeting','error');}
+  const customer_name=document.getElementById('mt-name').value.trim();
+  const customer_company=document.getElementById('mt-company').value.trim();
+  const customer_industry=document.getElementById('mt-industry').value.trim();
+  const member_id=parseInt(document.getElementById('mt-member').value);
+  const subspace_id=parseInt(document.getElementById('mt-ss').value);
+  const duration=parseInt(document.getElementById('mt-dur').value);
+  const date=document.getElementById('mt-date').value;
+  const time=document.getElementById('mt-time').value;
+  const meeting_notes=document.getElementById('mt-notes').value.trim();
+  if(!customer_name){toast('Customer name required','error');return;}
+  if(!date||!time){toast('Meeting date and time are required','error');return;}
+  const start_time=buildDateTime(date,time);
+  const end_time=addMinutes(start_time,duration);
+  if(!confirmNoOverlap(member_id,start_time,end_time,null,'meeting')){toast('Meeting save cancelled so you can adjust the overlap','error');return;}
+  try{
+    const slotNotes=[customer_name,customer_company].filter(Boolean).join(' · ')+(meeting_notes?` — ${meeting_notes}`:'');
+    const slotRows=await dbInsert('schedule_slot',{member_id,subspace_id,conference_id:CONFERENCE_ID,start_time,end_time,obligation_type:'Meeting',status:'Scheduled',notes:slotNotes});
+    const slot_id=Array.isArray(slotRows)&&slotRows.length?slotRows[0].id:null;
+    if(!slot_id)throw new Error('Schedule slot was created but no slot_id was returned.');
+    await dbInsert('customer_meeting',{customer_name,customer_company,customer_industry,subspace_id,slot_id,status:'Scheduled'});
+    toast('Meeting added','success');closeModal();await loadAll();render();
+  }catch(e){toast('Error adding meeting','error');console.error(e);}
 }
 
 function openOutcomeModal(meetingId){
