@@ -367,6 +367,16 @@ function formatClockLabel(timeStr){
   h=h%12||12;
   return`${h}:${String(m).padStart(2,'0')} ${ap}`;
 }
+function snapTo30Min(timeStr){
+  const[hRaw,mRaw]=timeStr.split(':').map(Number);
+  let h=hRaw,m=mRaw<15?0:mRaw<45?30:60;
+  if(m===60){m=0;h+=1;}
+  return`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+function isOffHoursTime(value){
+  const mins=conferenceMinutes(value);
+  return mins<8*60 || mins>=(17*60+30);
+}
 function formatTime(ts){
   const d=parseConferenceTimestamp(ts);
   return d?PT_TIME_FORMATTER.format(d):'';
@@ -603,12 +613,17 @@ function renderRequests(){
 }
 
 function renderMeetings(){
-  const rows=appData.meetings.map(m=>{
+  const rows=[...appData.meetings].sort((a,b)=>{
+    const sa=appData.slots.find(s=>s.id===a.slot_id);
+    const sb=appData.slots.find(s=>s.id===b.slot_id);
+    return parseConferenceTimestamp(sa?.start_time)-parseConferenceTimestamp(sb?.start_time);
+  }).map(m=>{
     const slot=appData.slots.find(s=>s.id===m.slot_id);
+    const offHoursBadge=slot&&isOffHoursTime(slot.start_time)?' <span class="badge badge-high">Off-hours</span>':'';
     return`<tr>
       <td><strong>${m.customer_name||'—'}</strong><br><span style="color:var(--text2);font-size:12px">${m.customer_company||''}</span></td>
       <td>${m.customer_industry||'—'}</td>
-      <td>${slot?formatTime(slot.start_time):'—'}</td>
+      <td>${slot?`<div>${formatDate(slot.start_time)}</div><div style="font-size:12px;color:var(--text2)">${formatTime(slot.start_time)}${offHoursBadge}</div>`:'—'}</td>
       <td>${slot?memberName(slot.member_id):'—'}</td>
       <td>${subspaceName(m.subspace_id)}</td>
       <td><span class="badge badge-${(m.status||'scheduled').toLowerCase()}">${m.status||'Scheduled'}</span></td>
@@ -621,7 +636,7 @@ function renderMeetings(){
       <button class="btn btn-primary" onclick="openAddMeetingModal()">+ Add meeting</button>
     </div>
     <div class="card" style="padding:0;overflow:hidden">
-      <table class="data-table"><thead><tr><th>Customer</th><th>Industry</th><th>Time</th><th>Owner</th><th>Sub-space</th><th>Status</th><th></th></tr></thead>
+      <table class="data-table"><thead><tr><th>Customer</th><th>Industry</th><th>Date & time</th><th>Owner</th><th>Sub-space</th><th>Status</th><th></th></tr></thead>
       <tbody>${rows||'<tr><td colspan="7"><div class="empty"><p>No meetings yet</p></div></td></tr>'}</tbody></table>
     </div>`;
 }
@@ -1016,8 +1031,8 @@ function openAddMeetingModal(){
       <div class="form-group"><label>Duration</label><select id="mt-dur">${durOptions}</select></div>
     </div>
     <div class="form-row">
-      <div class="form-group"><label>Date</label><input type="date" id="mt-date" value="${currentDay}"></div>
-      <div class="form-group"><label>Start time</label><input type="time" id="mt-time" value="09:00" step="900"></div>
+      <div class="form-group"><label>Date</label><input type="date" id="mt-date" value="${currentDay}" min="2026-07-13" max="2026-07-17"></div>
+      <div class="form-group"><label>Start time</label><input type="time" id="mt-time" value="09:00" min="08:00" max="21:00" step="1800"></div>
     </div>
     <div class="form-group"><label>Meeting notes (optional)</label><textarea id="mt-notes" placeholder="Customer topic, context, or meeting purpose"></textarea></div>
     <div class="modal-footer">
@@ -1033,10 +1048,13 @@ async function saveMeeting(){
   const subspace_id=parseInt(document.getElementById('mt-ss').value);
   const duration=parseInt(document.getElementById('mt-dur').value);
   const date=document.getElementById('mt-date').value;
-  const time=document.getElementById('mt-time').value;
+  const rawTime=document.getElementById('mt-time').value;
   const meeting_notes=document.getElementById('mt-notes').value.trim();
   if(!customer_name){toast('Customer name required','error');return;}
-  if(!date||!time){toast('Meeting date and time are required','error');return;}
+  if(!date||!rawTime){toast('Meeting date and time are required','error');return;}
+  if(date<'2026-07-13'||date>'2026-07-17'){toast('Meetings must be scheduled between Jul 13 and Jul 17','error');return;}
+  const time=snapTo30Min(rawTime);
+  if(time<'08:00'||time>'21:00'){toast('Meeting time must be between 8:00 AM and 9:00 PM','error');return;}
   const start_time=buildDateTime(date,time);
   const end_time=addMinutes(start_time,duration);
   if(!confirmNoOverlap(member_id,start_time,end_time,null,'meeting')){toast('Meeting save cancelled so you can adjust the overlap','error');return;}
