@@ -3,14 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" href="/favicon.ico" sizes="any">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png"> 
 <title>Commercial Conference Ops @ UC 2026</title>
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <style>
 :root{--bg:#F7F6F3;--surface:#FFFFFF;--surface2:#F0EEE9;--border:#E2DED6;--text:#1A1916;--text2:#6B6860;--text3:#9E9B94;--blue:#1A56A0;--blue-bg:#EAF1FB;--teal:#0F6E56;--teal-bg:#E2F4EE;--amber:#8A4F0B;--amber-bg:#FDF0DC;--red:#9B2020;--red-bg:#FDEAEA;--purple:#5B3FA8;--purple-bg:#EFECFB;--radius:8px;--radius-lg:12px}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
 .app{display:flex;flex-direction:column;min-height:100vh}
+@media(max-width:768px){.app{display:none!important}}
 header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;gap:20px;height:56px;position:sticky;top:0;z-index:100}
 .logo{font-size:15px;font-weight:600;letter-spacing:-.3px}.logo span{color:var(--blue)}
 nav{display:flex;gap:2px;margin-left:12px}
@@ -24,6 +25,7 @@ main{flex:1;padding:24px;max-width:1400px;margin:0 auto;width:100%}
 .mob-logo{font-size:15px;font-weight:600}.mob-logo span{color:var(--blue)}
 .mob-day{font-size:12px;color:var(--text2);padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);cursor:pointer}
 .mob-app{flex-direction:column;min-height:100vh;display:none}
+@media(max-width:768px){.mob-app{display:flex!important}}
 .mob-picker{padding:24px 16px}
 .mob-picker h2{font-size:18px;font-weight:600;margin-bottom:6px}
 .mob-picker p{font-size:13px;color:var(--text2);margin-bottom:20px}
@@ -158,14 +160,11 @@ textarea{resize:vertical;min-height:72px}
 hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0}
 .mt-12{margin-top:12px}.mb-16{margin-bottom:16px}.ml-auto{margin-left:auto}
 @media(max-width:768px){
-  header,main{display:none!important}
   .mob-header{display:flex}
-  .mob-app{display:flex!important}
   .mob-bottom-nav{display:block}
 }
 @media(min-width:769px){
-  .mob-header,.mob-app,.mob-bottom-nav{display:none!important}
-  .app{display:flex}
+  .mob-header,.mob-bottom-nav{display:none!important}
 }
 @media(max-width:1024px){
   .two-col{grid-template-columns:1fr}
@@ -188,11 +187,11 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0}
     </nav>
     <div class="header-right">
       <select class="day-select" id="daySelect" onchange="onDayChange()">
-        <option value="2025-07-13">Sun Jul 13</option>
-        <option value="2025-07-14">Mon Jul 14</option>
-        <option value="2025-07-15">Tue Jul 15</option>
-        <option value="2025-07-16">Wed Jul 16</option>
-        <option value="2025-07-17">Thu Jul 17</option>
+        <option value="2026-07-13">Mon Jul 13</option>
+        <option value="2026-07-14">Tue Jul 14</option>
+        <option value="2026-07-15">Wed Jul 15</option>
+        <option value="2026-07-16">Thu Jul 16</option>
+        <option value="2026-07-17">Fri Jul 17</option>
       </select>
     </div>
   </header>
@@ -206,11 +205,11 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0}
   <div class="mob-header">
     <div class="mob-logo">Conference<span>Ops</span></div>
     <select class="mob-day" id="mobDaySelect" onchange="onMobDayChange()">
-      <option value="2025-07-13">Sun Jul 13</option>
-      <option value="2025-07-14">Mon Jul 14</option>
-      <option value="2025-07-15">Tue Jul 15</option>
-      <option value="2025-07-16">Wed Jul 16</option>
-      <option value="2025-07-17">Thu Jul 17</option>
+      <option value="2026-07-13">Mon Jul 13</option>
+      <option value="2026-07-14">Tue Jul 14</option>
+      <option value="2026-07-15">Wed Jul 15</option>
+      <option value="2026-07-16">Thu Jul 16</option>
+      <option value="2026-07-17">Fri Jul 17</option>
     </select>
   </div>
   <div style="flex:1;overflow-y:auto" id="mobMain">
@@ -242,16 +241,16 @@ const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSI
 const CONFERENCE_ID=1;
 const BOOTH_START='09:00';
 const BOOTH_END='17:30';
-const CONF_DAYS=['2025-07-13','2025-07-14','2025-07-15','2025-07-16','2025-07-17'];
-const CONF_DAY_LABELS={'2025-07-13':'Sun Jul 13','2025-07-14':'Mon Jul 14','2025-07-15':'Tue Jul 15','2025-07-16':'Wed Jul 16','2025-07-17':'Thu Jul 17'};
+const CONF_DAYS=['2026-07-13','2026-07-14','2026-07-15','2026-07-16','2026-07-17'];
+const CONF_DAY_LABELS={'2026-07-13':'Mon Jul 13','2026-07-14':'Tue Jul 14','2026-07-15':'Wed Jul 15','2026-07-16':'Thu Jul 16','2026-07-17':'Fri Jul 17'};
 const OBLIGATION_TYPES=['Booth','Meeting','Session','Presenting'];
 const DURATIONS=[{label:'30 minutes',minutes:30},{label:'1 hour',minutes:60},{label:'1.5 hours',minutes:90},{label:'2 hours',minutes:120},{label:'2.5 hours',minutes:150},{label:'3 hours',minutes:180}];
 const URGENCY_LEVELS=['Low','Normal','High','Urgent'];
 
 let currentView='dashboard';
-let currentDay='2025-07-13';
+let currentDay='2026-07-13';
 let mobView='myday';
-let mobCurrentDay='2025-07-13';
+let mobCurrentDay='2026-07-13';
 let mobMemberId=null;
 let appData={team:[],subspaces:[],slots:[],requests:[],meetings:[],attendance:[]};
 
@@ -589,15 +588,20 @@ function renderMob(){
 }
 
 function renderMobPicker(){
+  const anyAttendance=appData.attendance.length>0;
   const btns=appData.team.map(m=>{
     const here=isPresent(m.id,mobCurrentDay);
-    return`<button class="mob-name-btn${here?'':' absent'}" onclick="selectMobMember(${m.id})">
-      ${m.name}${here?'':`<br><span style="font-size:10px;font-weight:400">Not attending</span>`}
+    // If no attendance data at all, show everyone as selectable
+    const show=here||!anyAttendance;
+    return`<button class="mob-name-btn${(anyAttendance&&!here)?' absent':''}" onclick="selectMobMember(${m.id})">
+      ${m.name}${anyAttendance&&!here?`<br><span style="font-size:10px;font-weight:400">Not attending</span>`:''}
     </button>`;
   }).join('');
+  const notice=!anyAttendance?`<div class="alert alert-warn" style="margin-bottom:16px"><span>⚠</span><span>Attendance not set up yet — all team members shown. Ask your admin to enter attendance in Supabase.</span></div>`:'';
   return`<div class="mob-picker">
     <h2>Who are you?</h2>
     <p>Select your name to see your schedule for ${dayLabel(mobCurrentDay)}.</p>
+    ${notice}
     <div class="mob-name-grid">${btns}</div>
   </div>`;
 }
@@ -740,7 +744,7 @@ function openAddSlotModal(memberId='',timeStr=''){
       <div class="form-group"><label>Duration</label><select id="sm-dur">${durOptions}</select></div>
     </div>
     <div class="form-row">
-      <div class="form-group"><label>Date</label><input type="date" id="sm-date" value="${currentDay}" onchange="checkAttendance()" min="2025-07-13" max="2025-07-17"></div>
+      <div class="form-group"><label>Date</label><input type="date" id="sm-date" value="${currentDay}" onchange="checkAttendance()" min="2026-07-13" max="2026-07-17"></div>
       <div class="form-group"><label>Start time</label><input type="time" id="sm-time" value="${timeStr||'09:00'}" step="1800"></div>
     </div>
     <div class="form-group"><label>Notes (optional)</label><textarea id="sm-notes" placeholder="Any context for this slot…"></textarea></div>
@@ -794,7 +798,7 @@ function openEditSlotModal(slotId){
       <div class="form-group"><label>Duration</label><select id="sm-dur">${durOptions}</select></div>
     </div>
     <div class="form-row">
-      <div class="form-group"><label>Date</label><input type="date" id="sm-date" value="${startDate}" min="2025-07-13" max="2025-07-17"></div>
+      <div class="form-group"><label>Date</label><input type="date" id="sm-date" value="${startDate}" min="2026-07-13" max="2026-07-17"></div>
       <div class="form-group"><label>Start time</label><input type="time" id="sm-time" value="${startTime}" step="1800"></div>
     </div>
     <div class="form-group"><label>Notes (optional)</label><textarea id="sm-notes">${slot.notes||''}</textarea></div>
@@ -1005,7 +1009,6 @@ async function init(){
     const loading=document.getElementById('globalLoading');
     if(loading)loading.remove();
     if(window.innerWidth<=768){
-      document.getElementById('mobApp').style.display='flex';
       renderMob();
     } else {
       render();
