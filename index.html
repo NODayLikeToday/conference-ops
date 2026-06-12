@@ -306,54 +306,42 @@ function timeSlots(){
   return s;
 }
 const CONFERENCE_TIME_ZONE='America/Los_Angeles';  
-const PT_TIME_FORMATTER=new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,hour:'numeric',minute:'2-digit',hour12:true});  
 const PT_DATE_FORMATTER=new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,weekday:'short',month:'short',day:'numeric'});  
 const PT_DAY_LABEL_FORMATTER=new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,weekday:'long',month:'short',day:'numeric'});  
 const PT_WEEKDAY_FORMATTER=new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,weekday:'short'});  
-function getFormatterParts(date,fmt){return fmt.formatToParts(date).reduce((acc,part)=>{if(part.type!=='literal')acc[part.type]=part.value;return acc;},{});}  
-function getTimeZoneOffsetMinutes(date,timeZone){  
-  const parts=new Intl.DateTimeFormat('en-US',{timeZone,hour12:false,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}).formatToParts(date);  
-  const map={};  
-  for(const part of parts){if(part.type!=='literal')map[part.type]=part.value;}  
-  const asUtc=Date.UTC(Number(map.year),Number(map.month)-1,Number(map.day),Number(map.hour),Number(map.minute),Number(map.second));  
-  return(asUtc-date.getTime())/60000;  
-}  
-function pacificDateTimeToUtcIso(dateStr,timeStr){  
-  const[year,month,day]=dateStr.split('-').map(Number);  
-  const[hour,minute]=timeStr.split(':').map(Number);  
-  const utcGuess=new Date(Date.UTC(year,month-1,day,hour,minute,0));  
-  const offsetMinutes=getTimeZoneOffsetMinutes(utcGuess,CONFERENCE_TIME_ZONE);  
-  const utcMillis=Date.UTC(year,month-1,day,hour,minute,0)-(offsetMinutes*60*1000);  
-  return new Date(utcMillis).toISOString();  
+function hasTimezoneInfo(value){return /(?:Z|[+-]\d{2}:\d{2})$/i.test(String(value||'').trim());}  
+function parseLocalDateTimeParts(value){  
+  if(!value)return null;  
+  const raw=String(value).trim();  
+  const naive=raw.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?$/);  
+  if(naive && !hasTimezoneInfo(raw)){  
+    const[_,date,hour,minute]=naive;  
+    return {date,hour,minute};  
+  }  
+  const parsed=new Date(raw);  
+  if(Number.isNaN(parsed.getTime()))return null;  
+  const parts=new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,year:'numeric',month:'2-digit',day:'2-digit',hour12:false,hour:'2-digit',minute:'2-digit'}).formatToParts(parsed).reduce((acc,part)=>{if(part.type!=='literal')acc[part.type]=part.value;return acc;},{});  
+  return {date:`${parts.year}-${parts.month}-${parts.day}`,hour:parts.hour,minute:parts.minute};  
 }  
 function pacificDateOnlyToSafeDate(dateStr){  
   const[year,month,day]=dateStr.split('-').map(Number);  
   return new Date(Date.UTC(year,month-1,day,12,0,0));  
 }  
-function parseConferenceTimestamp(value){  
-  if(!value)return null;  
-  if(value instanceof Date)return Number.isNaN(value.getTime())?null:value;  
-  if(typeof value==='string'){  
-    const trimmed=value.trim();  
-    const naive=trimmed.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?$/);  
-    if(naive){return new Date(pacificDateTimeToUtcIso(naive[1],naive[2]));}  
-    const parsed=new Date(trimmed);  
-    return Number.isNaN(parsed.getTime())?null:parsed;  
-  }  
-  const parsed=new Date(value);  
-  return Number.isNaN(parsed.getTime())?null:parsed;  
+function formatClockLabel(timeStr){  
+  if(!timeStr)return'';  
+  const[hourStr,minuteStr]=timeStr.split(':');  
+  let h=Number(hourStr),m=Number(minuteStr||0);  
+  const ap=h>=12?'PM':'AM';  
+  h=h%12||12;  
+  return`${h}:${String(m).padStart(2,'0')} ${ap}`;  
 }  
 function dateKeyInConferenceTime(ts){  
-  const d=parseConferenceTimestamp(ts);  
-  if(!d)return'';  
-  const parts=getFormatterParts(d,new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,year:'numeric',month:'2-digit',day:'2-digit'}));  
-  return`${parts.year}-${parts.month}-${parts.day}`;  
+  const parts=parseLocalDateTimeParts(ts);  
+  return parts?parts.date:'';  
 }  
 function time24InConferenceTime(ts){  
-  const d=parseConferenceTimestamp(ts);  
-  if(!d)return'';  
-  const parts=getFormatterParts(d,new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,hour12:false,hour:'2-digit',minute:'2-digit'}));  
-  return`${parts.hour}:${parts.minute}`;  
+  const parts=parseLocalDateTimeParts(ts);  
+  return parts?`${parts.hour}:${parts.minute}`:'';  
 }  
 function timeMinutesInConferenceTime(ts){  
   const hm=time24InConferenceTime(ts);  
@@ -362,12 +350,11 @@ function timeMinutesInConferenceTime(ts){
   return h*60+m;  
 }  
 function formatTime(ts){  
-  const d=parseConferenceTimestamp(ts);  
-  return d?PT_TIME_FORMATTER.format(d):'';  
+  return formatClockLabel(time24InConferenceTime(ts));  
 }  
 function formatDate(ts){  
-  const d=parseConferenceTimestamp(ts);  
-  return d?PT_DATE_FORMATTER.format(d):'';  
+  const dateStr=dateKeyInConferenceTime(ts);  
+  return dateStr?PT_DATE_FORMATTER.format(pacificDateOnlyToSafeDate(dateStr)):'';  
 }  
 function slotForDay(slot,day){  
   return dateKeyInConferenceTime(slot.start_time)===(day||currentDay);  
@@ -379,13 +366,17 @@ function slotCoversTime(slot,timeStr){
 }  
 function memberName(id){const m=appData.team.find(t=>t.id===id);return m?m.name:'—';}  
 function subspaceName(id){const s=appData.subspaces.find(x=>x.id===id);return s?s.name:'—';}  
-function buildDateTime(date,time){return pacificDateTimeToUtcIso(date,time);}  
-function addMinutes(dt,mins){const d=parseConferenceTimestamp(dt);if(!d)return'';d.setUTCMinutes(d.getUTCMinutes()+mins);return d.toISOString();}  
+function buildDateTime(date,time){return`${date}T${time}:00`;}  
+function addMinutes(dt,mins){  
+  const parts=parseLocalDateTimeParts(dt);  
+  if(!parts)return'';  
+  const[year,month,day]=parts.date.split('-').map(Number);  
+  const base=new Date(Date.UTC(year,month-1,day,Number(parts.hour),Number(parts.minute)+mins,0));  
+  return`${base.getUTCFullYear()}-${String(base.getUTCMonth()+1).padStart(2,'0')}-${String(base.getUTCDate()).padStart(2,'0')}T${String(base.getUTCHours()).padStart(2,'0')}:${String(base.getUTCMinutes()).padStart(2,'0')}:00`;  
+}  
 function nowTimeStr(){  
-  const parts=getFormatterParts(new Date(),new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,hour12:false,hour:'2-digit',minute:'2-digit'}));  
-  const hour=Number(parts.hour);  
-  const minute=Number(parts.minute);  
-  const rounded=minute-minute%30;  
+  const parts=new Intl.DateTimeFormat('en-US',{timeZone:CONFERENCE_TIME_ZONE,hour12:false,hour:'2-digit',minute:'2-digit'}).formatToParts(new Date()).reduce((acc,part)=>{if(part.type!=='literal')acc[part.type]=part.value;return acc;},{});  
+  const hour=Number(parts.hour),minute=Number(parts.minute),rounded=minute-minute%30;  
   return`${String(hour).padStart(2,'0')}:${String(rounded).padStart(2,'0')}`;  
 }  
 function dayLabel(dateStr){return PT_DAY_LABEL_FORMATTER.format(pacificDateOnlyToSafeDate(dateStr));}  
@@ -452,7 +443,7 @@ function renderDashboard(){
   const absentToday=absentOnDay(currentDay);
 
   const absentBanner=absentToday.length?`<div class="alert alert-info mb-16"><span>ℹ</span><span><strong>${absentToday.map(m=>m.name).join(', ')}</strong> not attending on ${dayLabel(currentDay)}</span></div>`:'';
-  const gapAlerts=gaps.slice(0,5).map(g=>`<div class="alert alert-danger"><span>⚠</span><span><strong>${g.subspace}</strong> uncovered at ${g.time.replace(/^0/,'')}</span></div>`).join('');
+  const gapAlerts=gaps.slice(0,5).map(g=>`<div class="alert alert-danger"><span>⚠</span><span><strong>${g.subspace}</strong> uncovered at ${formatClockLabel(g.time)}</span></div>`).join('');
 
   const unclaimedRequests=appData.requests.filter(r=>r.status==='Unassigned').slice(0,4);
   const requestList=unclaimedRequests.length?unclaimedRequests.map(r=>`
@@ -522,7 +513,7 @@ function renderSchedule(){
       }
       return`<td><div class="slot-cell slot-empty" onclick="openAddSlotModal(${member.id},'${t}')">+</div></td>`;
     }).join('');
-    return`<tr class="${isNow?'now-row':''}"><td class="time-label">${t.replace(/^0/,'')}</td>${cells}</tr>`;
+    return`<tr class="${isNow?'now-row':''}"><td class="time-label">${formatClockLabel(t)}</td>${cells}</tr>`;
   }).join('');
 
   return`
@@ -680,7 +671,7 @@ function renderMobMyDay(){
     <div class="alert alert-warn"><span>⚠</span><span>You are not scheduled to attend on this day. Select a different day or contact your admin.</span></div>
   </div>`;
 
-  const daySlots=appData.slots.filter(s=>s.member_id===mobMemberId&&slotForDay(s,mobCurrentDay)).sort((a,b)=>parseConferenceTimestamp(a.start_time)-parseConferenceTimestamp(b.start_time));
+  const daySlots=appData.slots.filter(s=>s.member_id===mobMemberId&&slotForDay(s,mobCurrentDay)).sort((a,b)=>timeMinutesInConferenceTime(a.start_time)-timeMinutesInConferenceTime(b.start_time));
   const slotCards=daySlots.length?daySlots.map(s=>{
     const type=(s.obligation_type||'Booth').toLowerCase();
     return`<div class="mob-slot mob-slot-${type}">
@@ -742,7 +733,7 @@ function renderMobCoverage(){
     </div>
     ${gaps.length?`<div class="mob-section">
       <div class="mob-section-title">Coverage gaps (${gaps.length} total today)</div>
-      ${gaps.slice(0,8).map(g=>`<div class="alert alert-danger" style="margin-bottom:6px"><span>⚠</span><span><strong>${g.subspace}</strong> uncovered at ${g.time.replace(/^0/,'')}</span></div>`).join('')}
+      ${gaps.slice(0,8).map(g=>`<div class="alert alert-danger" style="margin-bottom:6px"><span>⚠</span><span><strong>${g.subspace}</strong> uncovered at ${formatClockLabel(g.time)}</span></div>`).join('')}
       ${gaps.length>8?`<div style="font-size:12px;color:var(--text3);padding:4px 0">…and ${gaps.length-8} more</div>`:''}
     </div>`:`<div class="alert alert-info" style="margin-top:14px"><span>✓</span><span>All sub-spaces covered right now</span></div>`}
   </div>`;
@@ -842,10 +833,13 @@ function openEditSlotModal(slotId){
   const memberOptions=appData.team.map(m=>`<option value="${m.id}" ${slot.member_id===m.id?'selected':''}>${m.name}</option>`).join('');
   const ssOptions=appData.subspaces.map(s=>`<option value="${s.id}" ${slot.subspace_id===s.id?'selected':''}>${s.name}</option>`).join('');
   const typeOptions=OBLIGATION_TYPES.map(t=>`<option value="${t}" ${slot.obligation_type===t?'selected':''}>${t}</option>`).join('');
-  const startDt=parseConferenceTimestamp(slot.start_time),endDt=parseConferenceTimestamp(slot.end_time);
   const startDate=dateKeyInConferenceTime(slot.start_time);
   const startTime=time24InConferenceTime(slot.start_time);
-  const durMins=Math.round((endDt-startDt)/60000);
+  const startMins=timeMinutesInConferenceTime(slot.start_time), endMins=timeMinutesInConferenceTime(slot.end_time);
+  const durMins=endMins-startMins;
+  
+  
+  
   const durOptions=DURATIONS.map(d=>`<option value="${d.minutes}" ${durMins===d.minutes?'selected':''}>${d.label}</option>`).join('');
   showModal(`
     <div class="modal-title">Edit schedule slot</div>
