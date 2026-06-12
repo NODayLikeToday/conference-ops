@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conference Ops — UC 2025</title>
+<style>
+  :root {
+    --bg: #F7F6F3;
+    --surface: #FFFFFF;
+    --surface2: #F0EEE9;
+    --border: #E2DED6;
+    --text: #1A1916;
+    --text2: #6B6860;
+    --text3: #9E9B94;
+    --blue: #1A56A0;
+    --blue-bg: #EAF1FB;
+    --teal: #0F6E56;
+    --teal-bg: #E2F4EE;
+    --amber: #8A4F0B;
+    --amber-bg: #FDF0DC;
+    --red: #9B2020;
+    --red-bg: #FDEAEA;
+    --purple: #5B3FA8;
+    --purple-bg: #EFECFB;
+    --gray-bg: #F0EEE9;
+    --radius: 8px;
+    --radius-lg: 12px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+  
+  /* Layout */
+  .app { display: flex; flex-direction: column; min-height: 100vh; }
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; gap: 20px; height: 56px; position: sticky; top: 0; z-index: 100; }
+  .logo { font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: -0.3px; }
+  .logo span { color: var(--blue); }
+  nav { display: flex; gap: 2px; margin-left: 12px; }
+  nav button { background: none; border: none; padding: 6px 12px; border-radius: var(--radius); font-size: 13px; color: var(--text2); cursor: pointer; font-weight: 500; transition: all .15s; }
+  nav button:hover { background: var(--surface2); color: var(--text); }
+  nav button.active { background: var(--blue-bg); color: var(--blue); }
+  .header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .day-select { font-size: 13px; padding: 5px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); cursor: pointer; }
+  
+  main { flex: 1; padding: 24px; max-width: 1400px; margin: 0 auto; width: 100%; }
+  
+  /* Cards */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; }
+  .card-sm { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 18px; }
+  
+  /* Summary row */
+  .summary-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 18px; }
+  .stat-card .num { font-size: 26px; font-weight: 600; line-height: 1; margin-bottom: 4px; }
+  .stat-card .lbl { font-size: 12px; color: var(--text2); }
+  .num-ok { color: var(--teal); }
+  .num-warn { color: var(--amber); }
+  .num-danger { color: var(--red); }
+  .num-info { color: var(--blue); }
+
+  /* Two-col layout */
+  .two-col { display: grid; grid-template-columns: 1fr 380px; gap: 16px; align-items: start; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+  /* Schedule grid */
+  .section-title { font-size: 13px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+  .grid-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); }
+  table.sched { border-collapse: collapse; width: 100%; min-width: 700px; }
+  table.sched th { font-size: 11px; font-weight: 600; color: var(--text2); padding: 8px 10px; background: var(--surface2); border-bottom: 1px solid var(--border); text-align: left; position: sticky; top: 0; white-space: nowrap; }
+  table.sched th.time-col { min-width: 70px; }
+  table.sched th.person-col { min-width: 90px; }
+  table.sched td { border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); padding: 0; vertical-align: top; height: 36px; }
+  table.sched td.time-label { padding: 0 10px; font-size: 11px; color: var(--text3); white-space: nowrap; vertical-align: middle; background: var(--surface2); font-weight: 500; }
+  table.sched tr:last-child td { border-bottom: none; }
+  .slot-cell { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; padding: 2px 4px; cursor: pointer; transition: opacity .1s; text-align: center; }
+  .slot-cell:hover { opacity: .8; }
+  .slot-booth { background: var(--teal-bg); color: var(--teal); }
+  .slot-meeting { background: var(--blue-bg); color: var(--blue); }
+  .slot-session { background: var(--amber-bg); color: var(--amber); }
+  .slot-presenting { background: var(--purple-bg); color: var(--purple); }
+  .slot-gap { background: var(--red-bg); color: var(--red); }
+  .slot-empty { background: transparent; color: var(--text3); font-size: 11px; }
+  .slot-empty:hover { background: var(--surface2); }
+  .now-row td { border-top: 2px solid var(--blue) !important; }
+
+  /* Legend */
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text2); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+
+  /* Queue */
+  .queue-list { display: flex; flex-direction: column; gap: 8px; }
+  .queue-item { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; background: var(--surface); }
+  .queue-item.urgent { border-left: 3px solid var(--red); }
+  .queue-item.high { border-left: 3px solid var(--amber); }
+  .queue-item.normal { border-left: 3px solid var(--blue); }
+  .queue-item .qi-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+  .qi-name { font-weight: 600; font-size: 13px; }
+  .qi-company { font-size: 12px; color: var(--text2); }
+  .qi-meta { font-size: 11px; color: var(--text3); margin-top: 4px; }
+  .badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .badge-urgent { background: var(--red-bg); color: var(--red); }
+  .badge-high { background: var(--amber-bg); color: var(--amber); }
+  .badge-normal { background: var(--blue-bg); color: var(--blue); }
+  .badge-low { background: var(--gray-bg); color: var(--text2); }
+  .badge-unassigned { background: var(--red-bg); color: var(--red); }
+  .badge-claimed { background: var(--amber-bg); color: var(--amber); }
+  .badge-confirmed { background: var(--teal-bg); color: var(--teal); }
+  .badge-scheduled { background: var(--blue-bg); color: var(--blue); }
+  .badge-completed { background: var(--gray-bg); color: var(--text2); }
+  .badge-booth { background: var(--teal-bg); color: var(--teal); }
+  .badge-meeting { background: var(--blue-bg); color: var(--blue); }
+  .badge-session { background: var(--amber-bg); color: var(--amber); }
+  .badge-presenting { background: var(--purple-bg); color: var(--purple); }
+
+  /* Buttons */
+  btn, .btn { display: inline-flex; align-items: center; gap: 5px; padding: 7px 14px; border-radius: var(--radius); font-size: 13px; font-weight: 500; cursor: pointer; transition: all .15s; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+  .btn:hover { background: var(--surface2); }
+  .btn-primary { background: var(--blue); color: #fff; border-color: var(--blue); }
+  .btn-primary:hover { background: #154d8a; }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+  .btn-danger { background: var(--red-bg); color: var(--red); border-color: #f5c0c0; }
+  .btn-success { background: var(--teal-bg); color: var(--teal); border-color: #a0dece; }
+
+  /* Alerts */
+  .alert { border-radius: var(--radius); padding: 10px 14px; font-size: 13px; margin-bottom: 8px; display: flex; gap: 8px; align-items: flex-start; }
+  .alert-danger { background: var(--red-bg); color: var(--red); border: 1px solid #f5c0c0; }
+  .alert-warn { background: var(--amber-bg); color: var(--amber); border: 1px solid #f5d9a8; }
+  .alert-info { background: var(--blue-bg); color: var(--blue); border: 1px solid #b8d4f0; }
+  .alert-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+
+  /* Modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .modal { background: var(--surface); border-radius: var(--radius-lg); padding: 24px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
+  .modal-title { font-size: 16px; font-weight: 600; margin-bottom: 18px; }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+
+  /* Forms */
+  .form-group { margin-bottom: 14px; }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px; }
+  input, select, textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 13px; background: var(--surface); color: var(--text); font-family: inherit; transition: border-color .15s; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(26,86,160,0.1); }
+  textarea { resize: vertical; min-height: 72px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* Subspace floor plan */
+  .floorplan { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+  .subspace-card { border: 2px solid var(--border); border-radius: var(--radius-lg); padding: 14px; text-align: center; cursor: pointer; transition: all .15s; }
+  .subspace-card:hover { border-color: var(--blue); }
+  .subspace-card.covered { border-color: var(--teal); background: var(--teal-bg); }
+  .subspace-card.gap { border-color: var(--red); background: var(--red-bg); }
+  .subspace-card.partial { border-color: var(--amber); background: var(--amber-bg); }
+  .subspace-card .sc-name { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+  .subspace-card .sc-status { font-size: 11px; }
+  .subspace-card .sc-staff { font-size: 12px; color: var(--text2); margin-top: 6px; }
+
+  /* Tabs within sections */
+  .tab-row { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .tab-btn { background: none; border: none; padding: 8px 14px; font-size: 13px; color: var(--text2); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; font-weight: 500; transition: all .15s; }
+  .tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); }
+  .tab-btn:hover:not(.active) { color: var(--text); }
+
+  /* Table */
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table th { font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.4px; padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: left; background: var(--surface2); }
+  .data-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: var(--surface2); }
+
+  /* Empty state */
+  .empty { text-align: center; padding: 40px 20px; color: var(--text3); }
+  .empty p { font-size: 13px; margin-top: 8px; }
+
+  /* Toast */
+  .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+  .toast { background: var(--text); color: #fff; padding: 10px 16px; border-radius: var(--radius); font-size: 13px; box-shadow: var(--shadow); animation: slideIn .2s ease; max-width: 320px; }
+  .toast.success { background: var(--teal); }
+  .toast.error { background: var(--red); }
+  @keyframes slideIn { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  /* Loading */
+  .loading { display: flex; align-items: center; justify-content: center; padding: 40px; color: var(--text3); gap: 10px; font-size: 13px; }
+  .spinner { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .hidden { display: none !important; }
+  .flex { display: flex; }
+  .gap-8 { gap: 8px; }
+  .ml-auto { margin-left: auto; }
+  .mt-12 { margin-top: 12px; }
+  .mb-16 { margin-bottom: 16px; }
+  hr.divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+  @media (max-width: 900px) {
+    .two-col { grid-template-columns: 1fr; }
+    .summary-row { grid-template-columns: repeat(2, 1fr); }
+    .three-col { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">Conference<span>Ops</span></div>
+    <nav>
+      <button class="active" onclick="showView('dashboard')">Dashboard</button>
+      <button onclick="showView('schedule')">Schedule</button>
+      <button onclick="showView('requests')">Meeting Requests</button>
+      <button onclick="showView('meetings')">Customer Meetings</button>
+      <button onclick="showView('team')">Team</button>
+    </nav>
+    <div class="header-right">
+      <select class="day-select" id="daySelect" onchange="onDayChange()">
+        <option value="2025-07-13">Sun Jul 13</option>
+        <option value="2025-07-14">Mon Jul 14</option>
+        <option value="2025-07-15">Tue Jul 15</option>
+        <option value="2025-07-16">Wed Jul 16</option>
+        <option value="2025-07-17">Thu Jul 17</option>
+      </select>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="loading" id="globalLoading"><div class="spinner"></div> Loading conference data…</div>
+  </main>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+const SUPABASE_URL = 'https://aehyvclhkkamdkbdiyfW.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFlaHl2Y2xoa2thbWRrYmRpeWZ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyMDkyNjEsImV4cCI6MjA5Njc4NTI2MX0.sNALFfN1Fq9HdMoDWVv6GD_T7_9wzBos8wtew_vYS34';
+const CONFERENCE_ID = 1;
+const BOOTH_START = '09:00';
+const BOOTH_END   = '17:30';
+
+const OBLIGATION_TYPES = ['Booth','Meeting','Session','Presenting'];
+const DURATIONS = [
+  {label:'30 minutes', minutes:30},
+  {label:'1 hour',     minutes:60},
+  {label:'1.5 hours',  minutes:90},
+  {label:'2 hours',    minutes:120},
+  {label:'2.5 hours',  minutes:150},
+  {label:'3 hours',    minutes:180},
+];
+const URGENCY_LEVELS = ['Low','Normal','High','Urgent'];
+const SUBSPACE_NAMES = ['Financial Services','Retail','Real Estate','Insurance','Manufacturing','Logistics & Distribution','Technology'];
+
+let currentView = 'dashboard';
+let currentDay  = '2025-07-13';
+let appData = { team:[], subspaces:[], slots:[], requests:[], meetings:[] };
+
+/* ── API helpers ── */
+async function dbGet(table, params='') {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
+    headers:{ apikey: SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}` }
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+async function dbInsert(table, body) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method:'POST',
+    headers:{ apikey: SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`, 'Content-Type':'application/json', Prefer:'return=representation' },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+async function dbUpdate(table, id, body) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+    method:'PATCH',
+    headers:{ apikey: SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`, 'Content-Type':'application/json', Prefer:'return=representation' },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+async function dbDelete(table, id) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+    method:'DELETE',
+    headers:{ apikey: SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}` }
+  });
+  if (!r.ok) throw new Error(await r.text());
+}
+
+/* ── Data loading ── */
+async function loadAll() {
+  const [team, subspaces, slots, requests, meetings] = await Promise.all([
+    dbGet('team_member','order=name'),
+    dbGet('subspace','order=name'),
+    dbGet('schedule_slot',`conference_id=eq.${CONFERENCE_ID}&order=start_time`),
+    dbGet('meeting_request',`conference_id=eq.${CONFERENCE_ID}&order=submitted_at.desc`),
+    dbGet('customer_meeting','order=id.desc'),
+  ]);
+  appData = { team, subspaces, slots, requests, meetings };
+}
+
+/* ── Toast ── */
+function toast(msg, type='') {
+  const c = document.getElementById('toastContainer');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  c.appendChild(el);
+  setTimeout(()=>el.remove(), 3500);
+}
+
+/* ── Time helpers ── */
+function timeSlots() {
+  const slots = [];
+  let [h,m] = BOOTH_START.split(':').map(Number);
+  const [eh,em] = BOOTH_END.split(':').map(Number);
+  while (h < eh || (h === eh && m < em)) {
+    slots.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
+    m += 30; if (m >= 60) { m -= 60; h++; }
+  }
+  return slots;
+}
+function formatTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  let h = d.getHours(), m = d.getMinutes();
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  if (h > 12) h -= 12; if (h === 0) h = 12;
+  return `${h}:${String(m).padStart(2,'0')} ${ampm}`;
+}
+function formatDate(ts) {
+  if (!ts) return '';
+  return new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+}
+function slotForDay(slot) {
+  const d = new Date(slot.start_time);
+  const y = d.getFullYear(), mo = String(d.getMonth()+1).padStart(2,'0'), dy = String(d.getDate()).padStart(2,'0');
+  return `${y}-${mo}-${dy}` === currentDay;
+}
+function slotCoversTime(slot, timeStr) {
+  const [sh,sm] = timeStr.split(':').map(Number);
+  const start = new Date(slot.start_time), end = new Date(slot.end_time);
+  const slotMin = sh*60+sm;
+  const startMin = start.getHours()*60+start.getMinutes();
+  const endMin = end.getHours()*60+end.getMinutes();
+  return slotMin >= startMin && slotMin < endMin;
+}
+function memberName(id) {
+  const m = appData.team.find(t=>t.id===id);
+  return m ? m.name : '—';
+}
+function subspaceName(id) {
+  const s = appData.subspaces.find(s=>s.id===id);
+  return s ? s.name : '—';
+}
+function buildDateTime(date, time) {
+  return `${date}T${time}:00`;
+}
+function addMinutes(dateTimeStr, mins) {
+  const d = new Date(dateTimeStr);
+  d.setMinutes(d.getMinutes()+mins);
+  return d.toISOString().slice(0,16);
+}
+function nowTimeStr() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()-d.getMinutes()%30).padStart(2,'0')}`;
+}
+
+/* ── Coverage analysis ── */
+function analyzeCoverage(day) {
+  const slots = timeSlots();
+  const daySlots = appData.slots.filter(slotForDay);
+  const gaps = [];
+  appData.subspaces.forEach(ss => {
+    slots.forEach(t => {
+      const covering = daySlots.filter(s => s.subspace_id===ss.id && s.obligation_type==='Booth' && slotCoversTime(s,t));
+      if (covering.length===0) gaps.push({subspace:ss.name, time:t});
+    });
+  });
+  return gaps;
+}
+function subspaceCoverageStatus(ssId) {
+  const now = nowTimeStr();
+  const daySlots = appData.slots.filter(slotForDay);
+  const [bh,bm] = BOOTH_START.split(':').map(Number);
+  const [eh,em] = BOOTH_END.split(':').map(Number);
+  const [nh,nm] = now.split(':').map(Number);
+  const nowMin = nh*60+nm, boothStart = bh*60+bm, boothEnd = eh*60+em;
+  if (nowMin < boothStart || nowMin >= boothEnd) return 'outside';
+  const covering = daySlots.filter(s=>s.subspace_id===ssId && s.obligation_type==='Booth' && slotCoversTime(s,now));
+  if (covering.length===0) return 'gap';
+  const ss = appData.subspaces.find(s=>s.id===ssId);
+  if (ss && covering.length < ss.capacity) return 'partial';
+  return 'covered';
+}
+
+/* ── View router ── */
+function showView(view) {
+  currentView = view;
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b=>{ if(b.textContent.toLowerCase().includes(view.replace('-',' '))) b.classList.add('active'); });
+  render();
+}
+function onDayChange() {
+  currentDay = document.getElementById('daySelect').value;
+  render();
+}
+
+function render() {
+  const main = document.getElementById('main');
+  switch(currentView) {
+    case 'dashboard':  main.innerHTML = renderDashboard(); break;
+    case 'schedule':   main.innerHTML = renderSchedule(); break;
+    case 'requests':   main.innerHTML = renderRequests(); break;
+    case 'meetings':   main.innerHTML = renderMeetings(); break;
+    case 'team':       main.innerHTML = renderTeam(); break;
+  }
+}
+
+/* ══════════════════════════════════════
+   DASHBOARD VIEW
+══════════════════════════════════════ */
+function renderDashboard() {
+  const gaps = analyzeCoverage(currentDay);
+  const daySlots = appData.slots.filter(slotForDay);
+  const openRequests = appData.requests.filter(r=>r.status==='Unassigned').length;
+  const todayMeetings = appData.meetings.filter(m=>{
+    const slot = appData.slots.find(s=>s.id===m.slot_id);
+    return slot && slotForDay(slot);
+  }).length;
+  const coveredCount = appData.subspaces.length - new Set(gaps.filter(g=>{const now=nowTimeStr();return g.time===now;}).map(g=>g.subspace)).size;
+
+  const gapAlerts = gaps.slice(0,5).map(g=>`
+    <div class="alert alert-danger">
+      <span class="alert-icon">⚠</span>
+      <span><strong>${g.subspace}</strong> uncovered at ${g.time.replace(/^0/,'')}</span>
+    </div>`).join('');
+
+  const unclaimedRequests = appData.requests.filter(r=>r.status==='Unassigned').slice(0,4);
+  const requestList = unclaimedRequests.length ? unclaimedRequests.map(r=>`
+    <div class="queue-item ${r.urgency?r.urgency.toLowerCase():'normal'}">
+      <div class="qi-top">
+        <div><div class="qi-name">${r.customer_name||'—'}</div><div class="qi-company">${r.customer_company||''}</div></div>
+        <span class="badge badge-${(r.urgency||'normal').toLowerCase()}">${r.urgency||'Normal'}</span>
+      </div>
+      <div class="qi-meta">Submitted by ${r.submitted_by_name||'—'} · ${r.preferred_time_window||'Any time'}</div>
+      <div class="mt-12"><button class="btn btn-sm btn-primary" onclick="openClaimModal(${r.id})">Claim ticket</button></div>
+    </div>`).join('') : '<div class="empty"><p>No open requests</p></div>';
+
+  const floorplan = appData.subspaces.map(ss=>{
+    const status = subspaceCoverageStatus(ss.id);
+    const labels = {covered:'✓ Covered',gap:'⚠ Gap now',partial:'~ Partial',outside:'Booth closed'};
+    const colors = {covered:'var(--teal)',gap:'var(--red)',partial:'var(--amber)',outside:'var(--text3)'};
+    const staffNow = appData.slots.filter(s=>s.subspace_id===ss.id && slotForDay(s) && slotCoversTime(s,nowTimeStr())).map(s=>memberName(s.member_id)).join(', ');
+    return `<div class="subspace-card ${status==='outside'?'':status}" onclick="showView('schedule')">
+      <div class="sc-name">${ss.name}</div>
+      <div class="sc-status" style="color:${colors[status]}">${labels[status]||status}</div>
+      ${staffNow?`<div class="sc-staff">${staffNow}</div>`:''}
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="summary-row">
+      <div class="stat-card"><div class="num num-ok">${coveredCount}/${appData.subspaces.length}</div><div class="lbl">Sub-spaces covered now</div></div>
+      <div class="stat-card"><div class="num ${gaps.length?'num-danger':'num-ok'}">${gaps.length}</div><div class="lbl">Coverage gaps today</div></div>
+      <div class="stat-card"><div class="num ${openRequests?'num-warn':'num-ok'}">${openRequests}</div><div class="lbl">Open meeting requests</div></div>
+      <div class="stat-card"><div class="num num-info">${todayMeetings}</div><div class="lbl">Meetings today</div></div>
+    </div>
+
+    <div class="two-col">
+      <div>
+        <div class="section-title">Booth floor plan — now</div>
+        <div class="floorplan mb-16">${floorplan}</div>
+
+        <div class="section-title">Coverage gaps today</div>
+        <div class="card">
+          ${gapAlerts || '<div class="empty"><p>No coverage gaps — great job!</p></div>'}
+          ${gaps.length > 5 ? `<div style="font-size:12px;color:var(--text3);margin-top:8px">…and ${gaps.length-5} more. See Schedule for full view.</div>` : ''}
+        </div>
+      </div>
+      <div>
+        <div class="section-title" style="display:flex;justify-content:space-between;align-items:center">
+          Open meeting requests
+          <button class="btn btn-sm btn-primary" onclick="openRequestModal()">+ New request</button>
+        </div>
+        <div class="queue-list">${requestList}</div>
+      </div>
+    </div>`;
+}
+
+/* ══════════════════════════════════════
+   SCHEDULE VIEW
+══════════════════════════════════════ */
+function renderSchedule() {
+  const slots = timeSlots();
+  const daySlots = appData.slots.filter(slotForDay);
+  const now = nowTimeStr();
+
+  const headers = appData.team.map(m=>`<th class="person-col">${m.name}</th>`).join('');
+  const rows = slots.map(t=>{
+    const isNow = t === now;
+    const cells = appData.team.map(member=>{
+      const slot = daySlots.find(s=>s.member_id===member.id && slotCoversTime(s,t));
+      if (slot) {
+        const type = slot.obligation_type||'Booth';
+        const cls = `slot-${type.toLowerCase()}`;
+        const short = type==='Presenting'?'Pres':type;
+        return `<td><div class="slot-cell ${cls}" title="${member.name}: ${type}${slot.notes?'\n'+slot.notes:''}" onclick="openEditSlotModal(${slot.id})">${short}</div></td>`;
+      }
+      return `<td><div class="slot-cell slot-empty" onclick="openAddSlotModal('${member.id}','${t}')">+</div></td>`;
+    }).join('');
+    return `<tr class="${isNow?'now-row':''}"><td class="time-label">${t.replace(/^0/,'')}</td>${cells}</tr>`;
+  }).join('');
+
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div class="section-title" style="margin:0">Team schedule</div>
+      <button class="btn btn-primary" onclick="openAddSlotModal()">+ Add slot</button>
+    </div>
+    <div class="legend mb-16">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--teal-bg);border:1px solid var(--teal)"></div>Booth</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--blue-bg);border:1px solid var(--blue)"></div>Meeting</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--amber-bg);border:1px solid var(--amber)"></div>Session</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--purple-bg);border:1px solid var(--purple)"></div>Presenting</div>
+      <div class="legend-item" style="font-size:12px;color:var(--text3);margin-left:auto">Blue line = current time · Click any cell to edit or add</div>
+    </div>
+    <div class="grid-wrap">
+      <table class="sched">
+        <thead><tr><th class="time-col">Time</th>${headers}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+/* ══════════════════════════════════════
+   REQUESTS VIEW
+══════════════════════════════════════ */
+function renderRequests() {
+  const byStatus = (s) => appData.requests.filter(r=>r.status===s);
+  const all = appData.requests;
+
+  const rows = all.map(r=>`
+    <tr>
+      <td><strong>${r.customer_name||'—'}</strong><br><span style="color:var(--text2);font-size:12px">${r.customer_company||''}</span></td>
+      <td>${r.customer_industry||'—'}</td>
+      <td>${r.preferred_time_window||'Flexible'}</td>
+      <td>${r.submitted_by_name||'—'}</td>
+      <td><span class="badge badge-${(r.urgency||'normal').toLowerCase()}">${r.urgency||'Normal'}</span></td>
+      <td><span class="badge badge-${(r.status||'unassigned').toLowerCase().replace(' ','-')}">${r.status||'Unassigned'}</span></td>
+      <td>
+        ${r.status==='Unassigned'?`<button class="btn btn-sm btn-success" onclick="openClaimModal(${r.id})">Claim</button>`:''}
+        ${r.status==='Claimed'?`<span style="font-size:12px;color:var(--text2)">→ ${memberName(r.claimed_by_member_id)}</span>`:''}
+      </td>
+    </tr>`).join('');
+
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <div class="section-title" style="margin:0">Meeting requests</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px">Submitted by off-site colleagues for field team to claim</div>
+      </div>
+      <button class="btn btn-primary" onclick="openRequestModal()">+ Submit request</button>
+    </div>
+    <div class="summary-row" style="margin-bottom:20px">
+      <div class="stat-card"><div class="num num-danger">${byStatus('Unassigned').length}</div><div class="lbl">Unassigned</div></div>
+      <div class="stat-card"><div class="num num-warn">${byStatus('Claimed').length}</div><div class="lbl">Claimed</div></div>
+      <div class="stat-card"><div class="num num-ok">${byStatus('Confirmed').length}</div><div class="lbl">Confirmed</div></div>
+      <div class="stat-card"><div class="num">${all.length}</div><div class="lbl">Total</div></div>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <table class="data-table">
+        <thead><tr>
+          <th>Customer</th><th>Industry</th><th>Preferred time</th><th>Submitted by</th><th>Urgency</th><th>Status</th><th></th>
+        </tr></thead>
+        <tbody>${rows||'<tr><td colspan="7"><div class="empty"><p>No requests yet</p></div></td></tr>'}</tbody>
+      </table>
+    </div>`;
+}
+
+/* ══════════════════════════════════════
+   MEETINGS VIEW
+══════════════════════════════════════ */
+function renderMeetings() {
+  const rows = appData.meetings.map(m=>{
+    const slot = appData.slots.find(s=>s.id===m.slot_id);
+    return `<tr>
+      <td><strong>${m.customer_name||'—'}</strong><br><span style="color:var(--text2);font-size:12px">${m.customer_company||''}</span></td>
+      <td>${m.customer_industry||'—'}</td>
+      <td>${slot?formatTime(slot.start_time):'—'}</td>
+      <td>${slot?memberName(slot.member_id):'—'}</td>
+      <td>${subspaceName(m.subspace_id)}</td>
+      <td><span class="badge badge-${(m.status||'scheduled').toLowerCase()}">${m.status||'Scheduled'}</span></td>
+      <td><button class="btn btn-sm" onclick="openOutcomeModal(${m.id})">Log outcome</button></td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div class="section-title" style="margin:0">Customer meetings</div>
+      <button class="btn btn-primary" onclick="openAddMeetingModal()">+ Add meeting</button>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <table class="data-table">
+        <thead><tr><th>Customer</th><th>Industry</th><th>Time</th><th>Owner</th><th>Sub-space</th><th>Status</th><th></th></tr></thead>
+        <tbody>${rows||'<tr><td colspan="7"><div class="empty"><p>No meetings yet</p></div></td></tr>'}</tbody>
+      </table>
+    </div>`;
+}
+
+/* ══════════════════════════════════════
+   TEAM VIEW
+══════════════════════════════════════ */
+function renderTeam() {
+  const rows = appData.team.map(m=>{
+    const mySlots = appData.slots.filter(s=>s.member_id===m.id);
+    const today = mySlots.filter(slotForDay);
+    return `<tr>
+      <td><strong>${m.name}</strong></td>
+      <td>${m.email||'—'}</td>
+      <td>${m.role||'—'}</td>
+      <td>${m.industry_expertise||'—'}</td>
+      <td>${today.length} slot${today.length!==1?'s':''} today</td>
+      <td><button class="btn btn-sm" onclick="openEditMemberModal(${m.id})">Edit</button></td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div class="section-title" style="margin:0">Team members</div>
+      <button class="btn btn-primary" onclick="openAddMemberModal()">+ Add member</button>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <table class="data-table">
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Industry expertise</th><th>Today's slots</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+/* ══════════════════════════════════════
+   MODALS
+══════════════════════════════════════ */
+function showModal(html) {
+  closeModal();
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'modalOverlay';
+  overlay.innerHTML = `<div class="modal">${html}</div>`;
+  overlay.addEventListener('click', e=>{ if(e.target===overlay) closeModal(); });
+  document.body.appendChild(overlay);
+}
+function closeModal() {
+  const el = document.getElementById('modalOverlay');
+  if (el) el.remove();
+}
+
+/* Add schedule slot */
+function openAddSlotModal(memberId='', timeStr='') {
+  const memberOptions = appData.team.map(m=>`<option value="${m.id}" ${memberId==m.id?'selected':''}>${m.name}</option>`).join('');
+  const ssOptions = appData.subspaces.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  const typeOptions = OBLIGATION_TYPES.map(t=>`<option value="${t}">${t}</option>`).join('');
+  const durOptions = DURATIONS.map(d=>`<option value="${d.minutes}">${d.label}</option>`).join('');
+  showModal(`
+    <div class="modal-title">Add schedule slot</div>
+    <div class="form-row">
+      <div class="form-group"><label>Team member</label><select id="sm-member">${memberOptions}</select></div>
+      <div class="form-group"><label>Obligation type</label><select id="sm-type">${typeOptions}</select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Sub-space</label><select id="sm-ss">${ssOptions}</select></div>
+      <div class="form-group"><label>Duration</label><select id="sm-dur">${durOptions}</select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Date</label><input type="date" id="sm-date" value="${currentDay}"></div>
+      <div class="form-group"><label>Start time</label><input type="time" id="sm-time" value="${timeStr||'09:00'}" step="1800"></div>
+    </div>
+    <div class="form-group"><label>Notes (optional)</label><textarea id="sm-notes" placeholder="Any context…"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSlot()">Save slot</button>
+    </div>`);
+}
+
+async function saveSlot() {
+  const member_id = parseInt(document.getElementById('sm-member').value);
+  const subspace_id = parseInt(document.getElementById('sm-ss').value);
+  const obligation_type = document.getElementById('sm-type').value;
+  const duration = parseInt(document.getElementById('sm-dur').value);
+  const date = document.getElementById('sm-date').value;
+  const time = document.getElementById('sm-time').value;
+  const notes = document.getElementById('sm-notes').value;
+  const start_time = buildDateTime(date, time);
+  const end_time = addMinutes(start_time, duration);
+  try {
+    await dbInsert('schedule_slot',{member_id,subspace_id,conference_id:CONFERENCE_ID,start_time,end_time,obligation_type,status:'Scheduled',notes});
+    toast('Slot added','success');
+    closeModal();
+    await loadAll(); render();
+  } catch(e) { toast('Error saving slot','error'); console.error(e); }
+}
+
+/* Edit/delete slot */
+function openEditSlotModal(slotId) {
+  const slot = appData.slots.find(s=>s.id===slotId);
+  if (!slot) return;
+  const memberOptions = appData.team.map(m=>`<option value="${m.id}" ${slot.member_id===m.id?'selected':''}>${m.name}</option>`).join('');
+  const ssOptions = appData.subspaces.map(s=>`<option value="${s.id}" ${slot.subspace_id===s.id?'selected':''}>${s.name}</option>`).join('');
+  const typeOptions = OBLIGATION_TYPES.map(t=>`<option value="${t}" ${slot.obligation_type===t?'selected':''}>${t}</option>`).join('');
+  const startDt = new Date(slot.start_time);
+  const endDt = new Date(slot.end_time);
+  const startDate = startDt.toISOString().slice(0,10);
+  const startTime = `${String(startDt.getHours()).padStart(2,'0')}:${String(startDt.getMinutes()).padStart(2,'0')}`;
+  const durMins = Math.round((endDt-startDt)/60000);
+  const durOptions = DURATIONS.map(d=>`<option value="${d.minutes}" ${durMins===d.minutes?'selected':''}>${d.label}</option>`).join('');
+  showModal(`
+    <div class="modal-title">Edit schedule slot</div>
+    <div class="form-row">
+      <div class="form-group"><label>Team member</label><select id="sm-member">${memberOptions}</select></div>
+      <div class="form-group"><label>Obligation type</label><select id="sm-type">${typeOptions}</select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Sub-space</label><select id="sm-ss">${ssOptions}</select></div>
+      <div class="form-group"><label>Duration</label><select id="sm-dur">${durOptions}</select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Date</label><input type="date" id="sm-date" value="${startDate}"></div>
+      <div class="form-group"><label>Start time</label><input type="time" id="sm-time" value="${startTime}" step="1800"></div>
+    </div>
+    <div class="form-group"><label>Notes (optional)</label><textarea id="sm-notes">${slot.notes||''}</textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" onclick="deleteSlot(${slotId})">Delete</button>
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="updateSlot(${slotId})">Save changes</button>
+    </div>`);
+}
+
+async function updateSlot(id) {
+  const member_id = parseInt(document.getElementById('sm-member').value);
+  const subspace_id = parseInt(document.getElementById('sm-ss').value);
+  const obligation_type = document.getElementById('sm-type').value;
+  const duration = parseInt(document.getElementById('sm-dur').value);
+  const date = document.getElementById('sm-date').value;
+  const time = document.getElementById('sm-time').value;
+  const notes = document.getElementById('sm-notes').value;
+  const start_time = buildDateTime(date,time);
+  const end_time = addMinutes(start_time,duration);
+  try {
+    await dbUpdate('schedule_slot',id,{member_id,subspace_id,obligation_type,start_time,end_time,notes});
+    toast('Slot updated','success');
+    closeModal(); await loadAll(); render();
+  } catch(e) { toast('Error updating slot','error'); }
+}
+
+async function deleteSlot(id) {
+  if (!confirm('Delete this slot?')) return;
+  try {
+    await dbDelete('schedule_slot',id);
+    toast('Slot deleted');
+    closeModal(); await loadAll(); render();
+  } catch(e) { toast('Error deleting slot','error'); }
+}
+
+/* Meeting request */
+function openRequestModal() {
+  const ssOptions = `<option value="">Any sub-space</option>` + appData.subspaces.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  const urgencyOptions = URGENCY_LEVELS.map(u=>`<option value="${u}" ${u==='Normal'?'selected':''}>${u}</option>`).join('');
+  showModal(`
+    <div class="modal-title">Submit meeting request</div>
+    <div class="form-row">
+      <div class="form-group"><label>Your name</label><input id="rq-submitter" placeholder="e.g. Jim Smith"></div>
+      <div class="form-group"><label>Your email</label><input id="rq-sub-email" type="email" placeholder="jim@company.com"></div>
+    </div>
+    <hr class="divider">
+    <div class="form-row">
+      <div class="form-group"><label>Customer name</label><input id="rq-cust-name" placeholder="Customer's full name"></div>
+      <div class="form-group"><label>Company</label><input id="rq-company" placeholder="Company name"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Customer email</label><input id="rq-cust-email" type="email"></div>
+      <div class="form-group"><label>Customer phone</label><input id="rq-cust-phone" placeholder="Optional"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Industry</label><input id="rq-industry" placeholder="e.g. Financial Services"></div>
+      <div class="form-group"><label>Preferred sub-space</label><select id="rq-ss">${ssOptions}</select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Preferred time window</label><input id="rq-time-window" placeholder="e.g. Monday afternoon"></div>
+      <div class="form-group"><label>Urgency</label><select id="rq-urgency">${urgencyOptions}</select></div>
+    </div>
+    <div class="form-group"><label>Background & context</label><textarea id="rq-notes" placeholder="What should the team member know before this meeting?"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveRequest()">Submit request</button>
+    </div>`);
+}
+
+async function saveRequest() {
+  const body = {
+    conference_id: CONFERENCE_ID,
+    submitted_by_name: document.getElementById('rq-submitter').value,
+    submitted_by_email: document.getElementById('rq-sub-email').value,
+    customer_name: document.getElementById('rq-cust-name').value,
+    customer_company: document.getElementById('rq-company').value,
+    customer_email: document.getElementById('rq-cust-email').value,
+    customer_phone: document.getElementById('rq-cust-phone').value,
+    customer_industry: document.getElementById('rq-industry').value,
+    subspace_id: document.getElementById('rq-ss').value || null,
+    preferred_time_window: document.getElementById('rq-time-window').value,
+    urgency: document.getElementById('rq-urgency').value,
+    background_notes: document.getElementById('rq-notes').value,
+    status: 'Unassigned',
+    submitted_at: new Date().toISOString(),
+  };
+  if (!body.customer_name) { toast('Customer name is required','error'); return; }
+  try {
+    await dbInsert('meeting_request', body);
+    toast('Request submitted','success');
+    closeModal(); await loadAll(); render();
+  } catch(e) { toast('Error submitting request','error'); console.error(e); }
+}
+
+/* Claim request */
+function openClaimModal(requestId) {
+  const req = appData.requests.find(r=>r.id===requestId);
+  if (!req) return;
+  const memberOptions = appData.team.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
+  showModal(`
+    <div class="modal-title">Claim meeting request</div>
+    <div class="card-sm" style="margin-bottom:16px;background:var(--surface2)">
+      <div style="font-weight:600">${req.customer_name} — ${req.customer_company||'—'}</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px">${req.background_notes||'No background notes'}</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px">Preferred: ${req.preferred_time_window||'Flexible'}</div>
+    </div>
+    <div class="form-group"><label>Claiming team member</label><select id="cl-member">${memberOptions}</select></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="claimRequest(${requestId})">Claim this ticket</button>
+    </div>`);
+}
+
+async function claimRequest(requestId) {
+  const member_id = parseInt(document.getElementById('cl-member').value);
+  try {
+    await dbUpdate('meeting_request', requestId, {
+      status:'Claimed', claimed_by_member_id:member_id, claimed_at:new Date().toISOString()
+    });
+    toast('Ticket claimed — added to your queue','success');
+    closeModal(); await loadAll(); render();
+  } catch(e) { toast('Error claiming ticket','error'); }
+}
+
+/* Add customer meeting */
+function openAddMeetingModal() {
+  const slotOptions = appData.slots.map(s=>`<option value="${s.id}">${memberName(s.member_id)} · ${formatTime(s.start_time)} ${formatDate(s.start_time)}</option>`).join('');
+  const ssOptions = appData.subspaces.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  showModal(`
+    <div class="modal-title">Add customer meeting</div>
+    <div class="form-row">
+      <div class="form-group"><label>Customer name</label><input id="mt-name"></div>
+      <div class="form-group"><label>Company</label><input id="mt-company"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Industry</label><input id="mt-industry"></div>
+      <div class="form-group"><label>Sub-space</label><select id="mt-ss">${ssOptions}</select></div>
+    </div>
+    <div class="form-group"><label>Schedule slot</label><select id="mt-slot"><option value="">— select slot —</option>${slotOptions}</select></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveMeeting()">Add meeting</button>
+    </div>`);
+}
+
+async function saveMeeting() {
+  const body = {
+    customer_name: document.getElementById('mt-name').value,
+    customer_company: document.getElementById('mt-company').value,
+    customer_industry: document.getElementById('mt-industry').value,
+    subspace_id: parseInt(document.getElementById('mt-ss').value),
+    slot_id: parseInt(document.getElementById('mt-slot').value)||null,
+    status:'Scheduled'
+  };
+  if (!body.customer_name) { toast('Customer name required','error'); return; }
+  try {
+    await dbInsert('customer_meeting',body);
+    toast('Meeting added','success');
+    closeModal(); await loadAll(); render();
+  } catch(e) { toast('Error adding meeting','error'); }
+}
+
+/* Log outcome */
+function openOutcomeModal(meetingId) {
+  const m = appData.meetings.find(x=>x.id===meetingId);
+  if (!m) return;
+  showModal(`
+    <div class="modal-title">Log meeting outcome</div>
+    <div style="font-weight:600;margin-bottom:12px">${m.customer_name} — ${m.customer_company||''}</div>
+    <div class="form-group"><label>Status</label>
+      <select id="oc-status">
+        <option value="Completed">Completed</option>
+        <option value="No-show">No-show</option>
+        <option value="Rescheduled">Rescheduled</option>
+        <option value="Follow-up required">Follow-up required</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Notes</label><textarea id="oc-notes" placeholder="What was discussed? Any follow-up actions?">${m.outcome_notes||''}</textarea></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveOutcome(${meetingId})">Save outcome</button>
+    </div>`);
+}
+
+async function saveOutcome(id) {
+  const status = document.getElementById('oc-status').value;
+  const outcome_notes = document.getElementById('oc-notes').value;
+  try {
+    await dbUpdate('customer_meeting',id,{status,outcome_notes});
+    toast('Outcome saved','success');
+    closeModal(); await loadAll(); render();
+  } catch(e) { toast('Error saving outcome','error'); }
+}
+
+/* Add team member */
+function openAddMemberModal() {
+  showModal(`
+    <div class="modal-title">Add team member</div>
+    <div class="form-row">
+      <div class="form-group"><label>Name</label><input id="tm-name" placeholder="Full name"></div>
+      <div class="form-group"><label>Email</label><input id="tm-email" type="email"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Phone</label><input id="tm-phone"></div>
+      <div class="form-group"><label>Role</label><input id="tm-role" placeholder="e.g. Account Executive"></div>
+    </div>
+    <div class="form-group"><label>Industry expertise</label><input id="tm-expertise" placeholder="e.g. Retail, Insurance (comma-separated)"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveMember()">Add member</button>
+    </div>`);
+}
+
+async function saveMember() {
+  const body = {
+    name: document.getElementById('tm-name').value,
+    email: document.getElementById('tm-email').value,
+    phone: document.getElementById('tm-phone').value,
+    role: document.getElementById('tm-role').value,
+    industry_expertise: document.getElementById('tm-expertise').value,
+  };
+  if (!body.name) { toast('Name is required','error'); return; }
+  try {
+    await dbInsert('team_member',body);
+    toast('Team member added','success');
+    closeModal(); await loadAll(); render();
+  } catch(e) { toast('Error adding member','error'); }
+}
+
+/* Edit team member */
+function openEditMemberModal(memberId) {
+  const m = appData.team.find(t=>t.id===memberId);
+  if (!m) return;
+  showModal(`
+    <div class="modal-title">Edit team member</div>
+    <div class="form-row">
+      <div class="form-group"><label>Name</label><input id="tm-name" value="${m.name||''}"></div>
+      <div class="form-group"><label>Email</label><input id="tm-email" type="email" value="${m.email||''}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Phone</label><input id="tm-phone" value="${m.phone||''}"></div>
+      <div class="form-group"><label>Role</label><input id="tm-role" value="${m.role||''}"></div>
+    </div>
+    <div class="form-group"><label>Industry expertise</label><input id="tm-expertise" value="${m.industry_expertise||''}" placeholder="e.g. Retail, Insurance"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="updateMember(${memberId})">Save changes</button>
+    </div>`);
+}
+
+async function updateMember(id) {
+  const body = {
+    name: document.getElementById('tm-name').value,
+    email: document.getElementById('tm-email').value,
+    phone: document.getElementById('tm-phone').value,
+    role: document.getElementById('tm-role').value,
+    industry_expertise: document.getElementById('tm-expertise').value,
+  };
+  try {
+    await dbUpdate('team_member',id,body);
+    toast('Member updated','success');
+    closeModal(); await loadAll(); render();
+  } catch(e) { toast('Error updating member','error'); }
+}
+
+/* ── Boot ── */
+async function init() {
+  try {
+    await loadAll();
+    document.getElementById('globalLoading').remove();
+    render();
+  } catch(e) {
+    document.getElementById('globalLoading').innerHTML = `
+      <div style="text-align:center;color:var(--red)">
+        <div style="font-size:15px;font-weight:600;margin-bottom:8px">Could not connect to database</div>
+        <div style="font-size:13px;color:var(--text2)">Check your Supabase URL and key, then reload.</div>
+      </div>`;
+    console.error(e);
+  }
+}
+init();
+</script>
+</body>
+</html>
