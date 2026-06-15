@@ -20,6 +20,20 @@ nav button.active{background:var(--blue-bg);color:var(--blue)}
 .header-right{margin-left:auto;display:flex;align-items:center;gap:10px}
 .day-select{font-size:13px;padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);cursor:pointer}
 main{flex:1;padding:24px;max-width:1400px;margin:0 auto;width:100%}
+
+/* Mobile requests + meetings card views */
+.mc-list{display:flex;flex-direction:column;gap:12px}
+.mc-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px}
+.mc-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}
+.mc-title{font-size:15px;font-weight:600;line-height:1.25}
+.mc-subtitle{font-size:12px;color:var(--text2);margin-top:3px}
+.mc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;margin:12px 0}
+.mc-field-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.35px;margin-bottom:2px}
+.mc-field-value{font-size:13px;color:var(--text)}
+.mc-notes{font-size:12px;color:var(--text2);margin-top:10px;padding-top:10px;border-top:1px solid var(--border);word-break:break-word}
+.mc-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.mc-status-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+
 @media(max-width:768px){header{padding:12px 16px;height:auto;align-items:flex-start;flex-direction:column}.header-right{margin-left:0}.summary-row{grid-template-columns:1fr 1fr}.two-col{grid-template-columns:1fr}.data-table{font-size:12px}.hide-mobile{display:none}}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px}
 .card-sm{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px}
@@ -183,13 +197,42 @@ function renderSchedule(){
 
 function renderRequests(){
   const byStatus=s=>appData.requests.filter(r=>(r.status||'Requested')===s);
+  if(isMobileViewport()) return renderRequestsMobileCards(byStatus);
   const rows=appData.requests.map(r=>`<tr><td><strong>${r.customer_name||'—'}</strong><br><span style="color:var(--text2);font-size:12px">${r.customer_company||''}</span></td><td>${r.customer_industry||'—'}</td><td>${r.preferred_time_window||'Flexible'}</td><td>${r.submitted_by_name||'—'}</td><td>${r.preferred_member_id?memberName(r.preferred_member_id):(r.preferred_member_name||'—')}</td><td><span class="badge badge-${String(r.urgency||'normal').toLowerCase()}">${r.urgency||'Normal'}</span></td><td><span class="badge badge-${String(r.status||'Requested').toLowerCase()}">${r.status||'Requested'}</span></td><td>${(r.status||'Requested')==='Requested'?`<button class="btn btn-sm btn-success" onclick="openClaimModal(${r.id})">Claim</button> <button class="btn btn-sm btn-danger" onclick="deleteRequest(${r.id})">Delete</button>`:''}${(r.status||'Requested')==='Claimed'?`<button class="btn btn-sm" onclick="openRequestEditModal(${r.id})">Update</button> <button class="btn btn-sm btn-danger" onclick="deleteRequest(${r.id})">Delete</button><div style="font-size:12px;color:var(--text2);margin-top:4px">→ ${memberName(r.claimed_by_member_id)||'—'}</div>`:''}${(r.status||'Requested')==='Cancelled'?`<span style="font-size:12px;color:var(--text3)">Closed</span>`:''}${(r.status||'Requested')==='Scheduled'?`<span style="font-size:12px;color:var(--text3)">Scheduled</span>`:''}</td></tr>`).join('');
   return `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px"><div><div class="section-title" style="margin:0">Meeting requests</div><div style="font-size:12px;color:var(--text2);margin-top:2px">Submitted by off-site colleagues for field team to claim</div></div><button class="btn btn-primary" onclick="openRequestModal()">+ Submit request</button></div><div class="summary-row" style="margin-bottom:20px"><div class="stat-card"><div class="num num-info">${byStatus('Requested').length}</div><div class="lbl">Requested</div></div><div class="stat-card"><div class="num num-warn">${byStatus('Claimed').length}</div><div class="lbl">Claimed</div></div><div class="stat-card"><div class="num num-ok">${byStatus('Scheduled').length}</div><div class="lbl">Scheduled</div></div><div class="stat-card"><div class="num">${appData.requests.length}</div><div class="lbl">Total</div></div></div><div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>Customer</th><th>Industry</th><th>Preferred time</th><th>Submitted by</th><th>Preferred owner</th><th>Urgency</th><th>Status</th><th>Action</th></tr></thead><tbody>${rows||'<tr><td colspan="8"><div class="empty"><p>No requests yet</p></div></td></tr>'}</tbody></table></div>`;
 }
+function renderRequestsMobileCards(byStatus){
+  const cards=appData.requests.map(r=>{
+    const status=r.status||'Requested';
+    const urgency=r.urgency||'Normal';
+    const preferredOwner=r.preferred_member_id?memberName(r.preferred_member_id):(r.preferred_member_name||'—');
+    const claimedOwner=r.claimed_by_member_id?memberName(r.claimed_by_member_id):'';
+    const actions=(status==='Requested')
+      ? `<button class="btn btn-sm btn-success" onclick="openClaimModal(${r.id})">Claim</button><button class="btn btn-sm btn-danger" onclick="deleteRequest(${r.id})">Delete</button>`
+      : (status==='Claimed')
+        ? `<button class="btn btn-sm" onclick="openRequestEditModal(${r.id})">Update</button><button class="btn btn-sm btn-danger" onclick="deleteRequest(${r.id})">Delete</button>`
+        : '';
+    return `<div class="mc-card"><div class="mc-head"><div><div class="mc-title">${r.customer_name||'—'}</div><div class="mc-subtitle">${r.customer_company||'No company listed'}</div></div><div class="mc-status-row"><span class="badge badge-${String(urgency).toLowerCase()}">${urgency}</span><span class="badge badge-${String(status).toLowerCase()}">${status}</span></div></div><div class="mc-grid"><div><div class="mc-field-label">Industry</div><div class="mc-field-value">${r.customer_industry||'—'}</div></div><div><div class="mc-field-label">Preferred Time</div><div class="mc-field-value">${r.preferred_time_window||'Flexible'}</div></div><div><div class="mc-field-label">Submitted By</div><div class="mc-field-value">${r.submitted_by_name||'—'}</div></div><div><div class="mc-field-label">Preferred Owner</div><div class="mc-field-value">${preferredOwner}</div></div></div>${claimedOwner?`<div class="mc-notes" style="margin-top:0;padding-top:0;border-top:none">Claimed by ${claimedOwner}</div>`:''}${r.background_notes?`<div class="mc-notes">${r.background_notes}</div>`:''}${actions?`<div class="mc-actions">${actions}</div>`:''}</div>`;
+  }).join('');
+  return `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px"><div><div class="section-title" style="margin:0">Meeting requests</div><div style="font-size:12px;color:var(--text2);margin-top:2px">Submitted by off-site colleagues for field team to claim</div></div><button class="btn btn-primary" onclick="openRequestModal()">+ Submit request</button></div><div class="summary-row" style="margin-bottom:20px"><div class="stat-card"><div class="num num-info">${byStatus('Requested').length}</div><div class="lbl">Requested</div></div><div class="stat-card"><div class="num num-warn">${byStatus('Claimed').length}</div><div class="lbl">Claimed</div></div><div class="stat-card"><div class="num num-ok">${byStatus('Scheduled').length}</div><div class="lbl">Scheduled</div></div><div class="stat-card"><div class="num">${appData.requests.length}</div><div class="lbl">Total</div></div></div><div class="mc-list">${cards||'<div class="empty"><p>No requests yet</p></div>'}</div>`;
+}
 
 function renderMeetings(){
-  const rows=[...appData.meetings].sort((a,b)=>{const sa=appData.slots.find(s=>s.id===a.slot_id); const sb=appData.slots.find(s=>s.id===b.slot_id); return (parseConferenceTimestamp(sa?.start_time)||0) - (parseConferenceTimestamp(sb?.start_time)||0);}).map(m=>{ const slot=appData.slots.find(s=>s.id===m.slot_id); const whenHtml=(slot && normalizeStatus(m.status)!=='cancelled')?`<div>${formatDate(slot.start_time)}</div><div style="font-size:12px;color:var(--text2)">${formatTime(slot.start_time)}${slot&&isOffHoursTime(slot.start_time)?' <span class="badge badge-high">Off-hours</span>':''}</div>`:'—'; return `<tr><td><strong>${m.customer_name||'—'}</strong><br><span style="color:var(--text2);font-size:12px">${m.customer_company||''}</span></td><td>${m.customer_industry||'—'}</td><td>${whenHtml}</td><td>${slot?memberName(slot.member_id):'—'}</td><td>${subspaceName(m.subspace_id)}</td><td><span class="badge badge-${String(m.status||'scheduled').toLowerCase()}">${m.status||'Scheduled'}</span></td><td><button class="btn btn-sm" onclick="openOutcomeModal(${m.id})">Log outcome</button> ${normalizeStatus(m.status)!=='cancelled'?`<button class="btn btn-sm btn-danger" onclick="cancelMeeting(${m.id})">Cancel</button>`:''}</td></tr>`; }).join('');
+  const sortedMeetings=[...appData.meetings].sort((a,b)=>{const sa=appData.slots.find(s=>s.id===a.slot_id); const sb=appData.slots.find(s=>s.id===b.slot_id); return (parseConferenceTimestamp(sa?.start_time)||0) - (parseConferenceTimestamp(sb?.start_time)||0);});
+  if(isMobileViewport()) return renderMeetingsMobileCards(sortedMeetings);
+  const rows=sortedMeetings.map(m=>{ const slot=appData.slots.find(s=>s.id===m.slot_id); const whenHtml=(slot && normalizeStatus(m.status)!=='cancelled')?`<div>${formatDate(slot.start_time)}</div><div style="font-size:12px;color:var(--text2)">${formatTime(slot.start_time)}${slot&&isOffHoursTime(slot.start_time)?' <span class="badge badge-high">Off-hours</span>':''}</div>`:'—'; return `<tr><td><strong>${m.customer_name||'—'}</strong><br><span style="color:var(--text2);font-size:12px">${m.customer_company||''}</span></td><td>${m.customer_industry||'—'}</td><td>${whenHtml}</td><td>${slot?memberName(slot.member_id):'—'}</td><td>${subspaceName(m.subspace_id)}</td><td><span class="badge badge-${String(m.status||'scheduled').toLowerCase()}">${m.status||'Scheduled'}</span></td><td><button class="btn btn-sm" onclick="openOutcomeModal(${m.id})">Log outcome</button> ${normalizeStatus(m.status)!=='cancelled'?`<button class="btn btn-sm btn-danger" onclick="cancelMeeting(${m.id})">Cancel</button>`:''}</td></tr>`; }).join('');
   return `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px"><div class="section-title" style="margin:0">Customer meetings</div><button class="btn btn-primary" onclick="openAddMeetingModal()">+ Add meeting</button></div><div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>Customer</th><th>Industry</th><th>Date & time</th><th>Owner</th><th>Sub-space</th><th>Status</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="7"><div class="empty"><p>No meetings yet</p></div></td></tr>'}</tbody></table></div>`;
+}
+function renderMeetingsMobileCards(sortedMeetings){
+  const cards=sortedMeetings.map(m=>{ 
+    const slot=appData.slots.find(s=>s.id===m.slot_id);
+    const status=m.status||'Scheduled';
+    const owner=slot?memberName(slot.member_id):'—';
+    const whenValue=(slot && normalizeStatus(status)!=='cancelled') ? `${formatDate(slot.start_time)} · ${formatTime(slot.start_time)}${slot&&isOffHoursTime(slot.start_time)?' · Off-hours':''}` : '—';
+    const actions=`<button class="btn btn-sm" onclick="openOutcomeModal(${m.id})">Log outcome</button>${normalizeStatus(status)!=='cancelled'?`<button class="btn btn-sm btn-danger" onclick="cancelMeeting(${m.id})">Cancel</button>`:''}`;
+    return `<div class="mc-card"><div class="mc-head"><div><div class="mc-title">${m.customer_name||'—'}</div><div class="mc-subtitle">${m.customer_company||'No company listed'}</div></div><div class="mc-status-row"><span class="badge badge-${String(status).toLowerCase()}">${status}</span></div></div><div class="mc-grid"><div><div class="mc-field-label">Industry</div><div class="mc-field-value">${m.customer_industry||'—'}</div></div><div><div class="mc-field-label">Date & Time</div><div class="mc-field-value">${whenValue}</div></div><div><div class="mc-field-label">Owner</div><div class="mc-field-value">${owner}</div></div><div><div class="mc-field-label">Sub-space</div><div class="mc-field-value">${subspaceName(m.subspace_id)}</div></div></div><div class="mc-actions">${actions}</div></div>`;
+  }).join('');
+  return `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px"><div class="section-title" style="margin:0">Customer meetings</div><button class="btn btn-primary" onclick="openAddMeetingModal()">+ Add meeting</button></div><div class="mc-list">${cards||'<div class="empty"><p>No meetings yet</p></div>'}</div>`;
 }
 
 function renderTeam(){
