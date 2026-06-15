@@ -11,14 +11,27 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
 .app{display:flex;flex-direction:column;min-height:100vh}
-header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;gap:20px;height:56px;position:sticky;top:0;z-index:100}
-.logo{font-size:15px;font-weight:600;letter-spacing:-.3px}.logo span{color:var(--blue)}
-nav{display:flex;gap:2px;margin-left:12px;flex-wrap:wrap}
-nav button{background:none;border:none;padding:6px 12px;border-radius:var(--radius);font-size:13px;color:var(--text2);cursor:pointer;font-weight:500;transition:all .15s}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.header-top{display:flex;align-items:center;gap:20px;width:100%}
+.logo{font-size:15px;font-weight:600;letter-spacing:-.3px;white-space:nowrap}.logo span{color:var(--blue)}
+nav{display:flex;gap:2px;flex-wrap:wrap}
+nav button{background:none;border:none;padding:6px 12px;border-radius:var(--radius);font-size:13px;color:var(--text2);cursor:pointer;font-weight:500;transition:all .15s;white-space:nowrap}
 nav button:hover{background:var(--surface2);color:var(--text)}
 nav button.active{background:var(--blue-bg);color:var(--blue)}
 .header-right{margin-left:auto;display:flex;align-items:center;gap:10px}
 .day-select{font-size:13px;padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);cursor:pointer}
+@media(min-width:769px){
+  header{height:56px;padding:0 24px;position:sticky;top:0;z-index:100;flex-wrap:nowrap}
+  .header-top{display:contents}
+  nav{order:2;margin-left:12px}
+  .header-right{order:3}
+  .logo{order:1}
+}
+@media(max-width:768px){
+  header{position:sticky;top:0;z-index:100;row-gap:10px}
+  nav{width:100%;display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  nav button{text-align:center;padding:8px 6px}
+}
 main{flex:1;padding:24px;max-width:1400px;margin:0 auto;width:100%}
 
 /* Mobile requests + meetings card views */
@@ -34,7 +47,6 @@ main{flex:1;padding:24px;max-width:1400px;margin:0 auto;width:100%}
 .mc-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .mc-status-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
 
-@media(max-width:768px){header{padding:12px 16px;height:auto;align-items:flex-start;flex-direction:column}.header-right{margin-left:0}.summary-row{grid-template-columns:1fr 1fr}.two-col{grid-template-columns:1fr}.data-table{font-size:12px}.hide-mobile{display:none}}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px}
 .card-sm{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px}
 .summary-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
@@ -69,28 +81,49 @@ table.sched tr:last-child td{border-bottom:none}
 @keyframes slideIn{from{transform:translateY(10px);opacity:0}to{transform:translateY(0);opacity:1}}
 .loading{display:flex;align-items:center;justify-content:center;padding:48px;color:var(--text3);gap:10px;font-size:13px}.spinner{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
 hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0}.mb-16{margin-bottom:16px}
+
+/* ── Mobile responsive ── */
+@media(max-width:768px){
+  main{padding:14px}
+  .summary-row{grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+  .stat-card{padding:12px 14px}
+  .stat-card .num{font-size:22px}
+  .two-col{grid-template-columns:1fr;gap:14px}
+  .floorplan{grid-template-columns:repeat(2,1fr);gap:8px}
+  .subspace-card{padding:10px;text-align:left}
+  .sc-name{font-size:12px}
+  .alert{font-size:12px;justify-content:center;text-align:center}
+  .alert.mb-16{margin-bottom:14px}
+  .data-table{font-size:12px}
+  .data-table th,.data-table td{padding:8px}
+  .modal{max-width:100%;padding:18px}
+  .form-row{grid-template-columns:1fr}
+  .hide-mobile{display:none}
+}
 </style>
 </head>
 <body>
 <div class="app">
   <header>
-    <div class="logo">Conference<span>Ops</span></div>
+    <div class="header-top">
+      <div class="logo">Conference<span>Ops</span></div>
+      <div class="header-right">
+        <select class="day-select" id="daySelect" onchange="onDayChange()">
+          <option value="2026-07-13">Mon Jul 13</option>
+          <option value="2026-07-14">Tue Jul 14</option>
+          <option value="2026-07-15">Wed Jul 15</option>
+          <option value="2026-07-16">Thu Jul 16</option>
+          <option value="2026-07-17">Fri Jul 17</option>
+        </select>
+      </div>
+    </div>
     <nav>
       <button class="active" data-view="dashboard" onclick="showView('dashboard')">Dashboard</button>
       <button data-view="schedule" onclick="showView('schedule')">Schedule</button>
+      <button data-view="team" onclick="showView('team')">Team</button>
       <button data-view="requests" onclick="showView('requests')">Meeting Requests</button>
       <button data-view="meetings" onclick="showView('meetings')">Customer Meetings</button>
-      <button data-view="team" onclick="showView('team')">Team</button>
     </nav>
-    <div class="header-right">
-      <select class="day-select" id="daySelect" onchange="onDayChange()">
-        <option value="2026-07-13">Mon Jul 13</option>
-        <option value="2026-07-14">Tue Jul 14</option>
-        <option value="2026-07-15">Wed Jul 15</option>
-        <option value="2026-07-16">Thu Jul 16</option>
-        <option value="2026-07-17">Fri Jul 17</option>
-      </select>
-    </div>
   </header>
   <main id="main"><div class="loading" id="globalLoading"><div class="spinner"></div> Loading conference data…</div></main>
 </div>
@@ -171,6 +204,15 @@ function closeModal(){ const el=document.getElementById('modalOverlay'); if(el) 
 
 function showView(view){ currentView=view; document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active', b.dataset.view===view)); render(); }
 function onDayChange(){ currentDay=document.getElementById('daySelect').value; render(); }
+function isMobileViewport(){ return window.innerWidth<=768; }
+let _lastViewportWasMobile=isMobileViewport();
+window.addEventListener('resize',()=>{
+  const nowMobile=isMobileViewport();
+  if(nowMobile!==_lastViewportWasMobile){
+    _lastViewportWasMobile=nowMobile;
+    render();
+  }
+});
 function render(){ const main=document.getElementById('main'); switch(currentView){ case 'dashboard': main.innerHTML=renderDashboard(); break; case 'schedule': main.innerHTML=renderSchedule(); break; case 'requests': main.innerHTML=renderRequests(); break; case 'meetings': main.innerHTML=renderMeetings(); break; case 'team': main.innerHTML=renderTeam(); break; } }
 
 function renderDashboard(){
@@ -184,7 +226,7 @@ function renderDashboard(){
   const openQueue=appData.requests.filter(r=>!['scheduled','cancelled'].includes(normalizeStatus(r.status||'Requested'))).slice(0,4);
   const requestList=openQueue.length?openQueue.map(r=>`<div class="queue-item ${String(r.urgency||'normal').toLowerCase()}"><div class="qi-top"><div><div class="qi-name">${r.customer_name||'—'}</div><div class="qi-company">${r.customer_company||''}</div></div><span class="badge badge-${String(r.urgency||'normal').toLowerCase()}">${r.urgency||'Normal'}</span></div><div class="qi-meta">From ${r.submitted_by_name||'—'} · ${r.preferred_time_window||'Any time'}</div><div class="mt-12">${(r.status||'Requested')==='Requested'?`<button class="btn btn-sm btn-primary" onclick="openClaimModal(${r.id})">Claim ticket</button>`:`<span class="badge badge-${String(r.status||'Requested').toLowerCase()}">${r.status||'Requested'}</span>`}</div></div>`).join('') : '<div class="empty"><p>No open requests</p></div>';
   const floorplan=appData.subspaces.map(ss=>{ const status=subspaceCoverageStatus(ss.id,currentDay); const labels={covered:'✓ Covered',gap:'⚠ Gap now',partial:'~ Partial',outside:'Booth closed'}; const colors={covered:'var(--teal)',gap:'var(--red)',partial:'var(--amber)',outside:'var(--text3)'}; const staffNow=appData.slots.filter(s=>s.subspace_id===ss.id&&slotForDay(s,currentDay)&&slotCoversTime(s,nowTimeStr())&&s.obligation_type==='Booth').map(s=>memberName(s.member_id)).join(', '); return `<div class="subspace-card ${status}" onclick="showView('schedule')"><div class="sc-name">${ss.name}</div><div class="sc-status" style="color:${colors[status]}">${labels[status]||status}</div>${staffNow?`<div class="sc-staff">${staffNow}</div>`:''}</div>`; }).join('');
-  return `${absentBanner}<div class="summary-row"><div class="stat-card"><div class="num num-ok">${coveredNow}/${appData.subspaces.length}</div><div class="lbl">Sub-spaces covered now</div></div><div class="stat-card"><div class="num ${gaps.length?'num-danger':'num-ok'}">${gaps.length}</div><div class="lbl">Coverage gaps today</div></div><div class="stat-card"><div class="num ${openRequests?'num-warn':'num-ok'}">${openRequests}</div><div class="lbl">Open meeting requests</div></div><div class="stat-card"><div class="num num-info">${todayMeetings}</div><div class="lbl">Meetings today</div></div></div><div class="two-col"><div><div class="section-title">Booth floor plan — now</div><div class="floorplan mb-16">${floorplan}</div><div class="section-title">Coverage gaps today</div><div class="card">${gapAlerts||'<div class="empty"><p>No coverage gaps — great job!</p></div>'}${gaps.length>5?`<div style="font-size:12px;color:var(--text3);margin-top:8px">…and ${gaps.length-5} more. See Schedule for full view.</div>`:''}</div></div><div><div class="section-title" style="display:flex;justify-content:space-between;align-items:center">Open meeting requests <button class="btn btn-sm btn-primary" onclick="openRequestModal()">+ New request</button></div><div class="queue-list">${requestList}</div></div></div>`;
+  return `${absentBanner}<div class="summary-row"><div class="stat-card"><div class="num num-ok">${coveredNow}/${appData.subspaces.length}</div><div class="lbl">Sub-spaces covered now</div></div><div class="stat-card"><div class="num ${gaps.length?'num-danger':'num-ok'}">${gaps.length}</div><div class="lbl">Coverage gaps today</div></div><div class="stat-card"><div class="num ${openRequests?'num-warn':'num-ok'}">${openRequests}</div><div class="lbl">Open meeting requests</div></div><div class="stat-card"><div class="num num-info">${todayMeetings}</div><div class="lbl">Meetings today</div></div></div><div class="two-col"><div><div class="section-title">Booth floor plan — now</div><div class="floorplan mb-16">${floorplan}</div><div class="hide-mobile"><div class="section-title">Coverage gaps today</div><div class="card">${gapAlerts||'<div class="empty"><p>No coverage gaps — great job!</p></div>'}${gaps.length>5?`<div style="font-size:12px;color:var(--text3);margin-top:8px">…and ${gaps.length-5} more. See Schedule for full view.</div>`:''}</div></div></div><div><div class="section-title" style="display:flex;justify-content:space-between;align-items:center">Open meeting requests <button class="btn btn-sm btn-primary" onclick="openRequestModal()">+ New request</button></div><div class="queue-list">${requestList}</div></div></div>`;
 }
 
 function renderSchedule(){
@@ -237,7 +279,7 @@ function renderMeetingsMobileCards(sortedMeetings){
 
 function renderTeam(){
   const rows=appData.team.map(m=>{ const today=appData.slots.filter(s=>s.member_id===m.id&&slotForDay(s,currentDay)); const attendingDays=CONF_DAYS.filter(d=>isPresent(m.id,d)).map(d=>PT_WEEKDAY_FORMATTER.format(pacificDateOnlyToSafeDate(d))).join(', '); return `<tr><td><strong>${m.name}</strong></td><td>${m.email||'—'}</td><td>${m.role||'—'}</td><td>${m.industry_expertise||'—'}</td><td>${attendingDays||'<span style="color:var(--red);font-size:12px">No days entered</span>'}</td><td>${today.length} slot${today.length!==1?'s':''} today</td><td><button class="btn btn-sm" onclick="openEditMemberModal(${m.id})">Edit</button></td></tr>`; }).join('');
-  return `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px"><div class="section-title" style="margin:0">Team members</div><button class="btn btn-primary" onclick="openAddMemberModal()">+ Add member</button></div><div class="alert alert-info mb-16"><span>ℹ</span><span>Attendance days are set in Supabase in the <strong>conference_attendance</strong> table.</span></div><div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Industry expertise</th><th>Attending days</th><th>Slots today</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="7"><div class="empty"><p>No team members yet</p></div></td></tr>'}</tbody></table></div>`;
+  return `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px"><div class="section-title" style="margin:0">Team members</div><button class="btn btn-primary" onclick="openAddMemberModal()">+ Add member</button></div><div class="alert alert-info mb-16"><span>ℹ</span><span>Attendance days are set in Supabase in the <strong>conference_attendance</strong> table.</span></div><div class="grid-wrap"><table class="data-table" style="min-width:760px"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Industry expertise</th><th>Attending days</th><th>Slots today</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="7"><div class="empty"><p>No team members yet</p></div></td></tr>'}</tbody></table></div>`;
 }
 
 function openAddSlotModal(memberId='',timeStr='09:00'){
